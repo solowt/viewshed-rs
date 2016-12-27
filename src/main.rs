@@ -207,8 +207,10 @@ impl Raster {
     //
     fn check_line(&self, line: &Vec<Point>) -> Vec<bool> {
         let origin = &line[0];
-        let mut hist_vec: Vec<f64> = Vec::new();
 
+        let mut highest_slope: f64 = std::f64::NEG_INFINITY;
+
+        // take line of points, map to line of slopes
         line.iter()
             .map(|p: &Point| {
                 if p.x == origin.x && p.y == origin.y {
@@ -218,24 +220,18 @@ impl Raster {
                 }
             })
             .collect::<Vec<f64>>()
+            // take line of slopes, map to line of bools
             .iter()
-            .cloned()
-            .map(|curr_slope: f64|{
-                if curr_slope == std::f64::NEG_INFINITY {
-                    hist_vec.push(curr_slope);
+            .map(|curr_slope: &f64|{
+                if *curr_slope == std::f64::NEG_INFINITY {
                     true
                 } else {
-                    match hist_vec.iter().cloned().find(|old_slope|{
-                        old_slope > &curr_slope
-                    }) {
-                        Some(r) => {
-                            hist_vec.push(curr_slope);
-                            return false;
-                        }
-                        None => {
-                            hist_vec.push(curr_slope);
-                            return true;
-                        }
+                    println!("{},{}",curr_slope, highest_slope);
+                    if *curr_slope > highest_slope {
+                        highest_slope = *curr_slope;
+                        true
+                    } else {
+                        false
                     }
                 }
             })
