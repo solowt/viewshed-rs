@@ -1,12 +1,14 @@
 extern crate rand;
 static NO_VALUE: f32 = std::f32::MAX;
+use std::cmp::*;
 
 // x, y point
-#[derive(Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 struct Point{
     x: i32,
     y: i32
 }
+
 
 // result of viewshed
 #[allow(dead_code)]
@@ -49,11 +51,11 @@ impl Raster {
             (((p2.x-p1.x).pow(2) + (p2.y-p1.y).pow(2)) as f64).sqrt()
     }
 
-    fn get_slope(&self, p1: Point, p2: Point) -> f64{
-        let h1 = self.value_at(&p1);
-        let h2 = self.value_at(&p2);
-        println!("p1 height: {}, p2 height: {}", h1, h2);
-        (h2-h1) as f64/self.get_dist(&p1,&p2)
+    fn get_slope(&self, p1: &Point, p2: &Point) -> f64{
+        let h1 = self.value_at(p1);
+        let h2 = self.value_at(p2);
+        // println!("p1 height: {}, p2 height: {}", h1, h2);
+        (h2-h1) as f64/self.get_dist(p1,p2)
     }
 
     #[allow(dead_code)]
@@ -89,6 +91,7 @@ impl Raster {
     // bresenham's line algorithm http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
     // give two points draw a line between them.  return vector of points as the line
     fn draw_line(p1: Point, p2: Point) -> Vec<Point>{
+
         let mut ret_vec = Vec::new();
         let delta_x: i32 = p2.x - p1.x;
         let delta_y: i32 = p2.y - p1.y;
@@ -129,6 +132,7 @@ impl Raster {
     }
 
     fn draw_circle(mid_point: Point, radius: u32) -> Vec<Point>{
+
         let mut ret_vec = Vec::new();
 
         let mut x: i32 = radius as i32;
@@ -138,16 +142,16 @@ impl Raster {
         while x >= y {
 
             ret_vec.push(Point{x: mid_point.x + x, y: mid_point.y + y});
-            if y != 0 { ret_vec.push(Point{x: mid_point.x + x, y: mid_point.y - y}); }
+            ret_vec.push(Point{x: mid_point.x + x, y: mid_point.y - y});
 
             ret_vec.push(Point{x: mid_point.x + y, y: mid_point.y + x});
-            if y != 0 { ret_vec.push(Point{x: mid_point.x - y, y: mid_point.y + x}); }
+            ret_vec.push(Point{x: mid_point.x - y, y: mid_point.y + x});
 
             ret_vec.push(Point{x: mid_point.x - x, y: mid_point.y + y});
-            if y != 0 { ret_vec.push(Point{x: mid_point.x - x, y: mid_point.y - y}); }
+            ret_vec.push(Point{x: mid_point.x - x, y: mid_point.y - y});
 
             ret_vec.push(Point{x: mid_point.x - y, y: mid_point.y - x});
-            if y != 0 { ret_vec.push(Point{x: mid_point.x + y, y: mid_point.y - x}); }
+            ret_vec.push(Point{x: mid_point.x + y, y: mid_point.y - x});
 
             if err <= 0 {
                 y += 1;
@@ -158,13 +162,94 @@ impl Raster {
                 err -= 2*x + 1;
             }
         }
+
+        ret_vec.sort_by(|a,b|{
+            if a.x == b.x && a.y == b.y {
+                Ordering::Equal
+            } else if a.y >= 0 {
+                if b.y < 0 {
+                    Ordering::Less
+                } else {
+                    if a.x != b.x {
+                        b.x.cmp(&a.x)
+                    } else {
+                        if a.x > 0 {
+                            a.y.cmp(&b.y)
+                        } else {
+                            b.y.cmp(&a.y)
+                        }
+                    }
+                }
+            } else {
+                if b.y > 0 {
+                    Ordering::Greater
+                } else {
+                    if a.x != b.x {
+                        a.x.cmp(&b.x)
+                    } else {
+                        if a.x < 0 {
+                            b.y.cmp(&a.y)
+                        } else {
+                            a.y.cmp(&b.y)
+                        }
+                    }
+                }
+            }
+        });
+
+        ret_vec.dedup();
         ret_vec
     }
+
+    // fn is_visible(origin: Point, target: Point) -> bool {
+    //
+    // }
+    //
+    fn check_line(&self, line: &Vec<Point>) -> Vec<bool> {
+        let origin = &line[0];
+        let mut hist_vec: Vec<f64> = Vec::new();
+
+        line.iter()
+            .map(|p: &Point| {
+                if p.x == origin.x && p.y == origin.y {
+                    std::f64::NEG_INFINITY
+                } else {
+                    self.get_slope(origin,p)
+                }
+            })
+            .collect::<Vec<f64>>()
+            .iter()
+            .cloned()
+            .map(|curr_slope: f64|{
+                if curr_slope == std::f64::NEG_INFINITY {
+                    hist_vec.push(curr_slope);
+                    true
+                } else {
+                    match hist_vec.iter().cloned().find(|old_slope|{
+                        old_slope > &curr_slope
+                    }) {
+                        Some(r) => {
+                            hist_vec.push(curr_slope);
+                            return false;
+                        }
+                        None => {
+                            hist_vec.push(curr_slope);
+                            return true;
+                        }
+                    }
+                }
+            })
+            .collect::<Vec<bool>>()
+    }
+    //
+    // fn check_raster(&self, circle: Vec<Point>) -> ResultRaster {
+    //
+    // }
 }
 
 fn main() {
     let a: Raster = Raster::rand_raster();
     // let height = a.value_at(Point{x:5,y:5});
-    let line = Raster::draw_circle(Point{x:50,y:50}, 50);
-    println!("{:?}",line);
+    println!("{:?}",a.check_line(&Raster::draw_line(Point{x:0,y:0}, Point{x:0,y:10})));
+    // println!("{:?}",line);
 }
