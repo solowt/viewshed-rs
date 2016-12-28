@@ -19,6 +19,17 @@ struct ResultRaster{
     y1: f64
 }
 
+impl ResultRaster {
+    fn new(result_vec: Vec<bool>, width:u32, x0: f64, y1: f64) -> ResultRaster {
+        ResultRaster{
+            pixels: result_vec,
+            width: width,
+            x0: x0,
+            y1: y1
+        }
+    }
+}
+
 // struct for a raster
 #[allow(dead_code)]
 struct Raster{
@@ -70,6 +81,11 @@ impl Raster {
         }
     }
 
+    fn set_result(raster: &mut Vec<bool>, width: u32, point: &Point, value: bool){
+        let idx: u32 = (width * point.y.abs() as u32) + point.x.abs() as u32;
+        raster[idx as usize] = value;
+    }
+
     #[allow(dead_code)]
     // set raster source
     fn set_raster(&mut self, raster: &[f32]){
@@ -81,16 +97,20 @@ impl Raster {
     }
 
     fn rand_raster_source() -> [f32;65_000]{
-        let mut arr: [f32;65_000] = [0.0;65_000];
+        let mut last_height: f32 = 0.0;
+        let mut arr: [f32; 65_000] = [0.0; 65_000];
         for i in 0..arr.len() {
-            arr[i] = rand::random::<f32>() * 1_000.0;
+            let pos_or_neg: f32 = if rand::random::<f32>() > 0.5 { 1.0 } else { -1.0 };
+            let curr_height = last_height + rand::random::<f32>() * pos_or_neg;
+            arr[i] = curr_height;
+            last_height = curr_height;
         }
         arr
     }
 
     // bresenham's line algorithm http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
     // give two points draw a line between them.  return vector of points as the line
-    fn draw_line(p1: Point, p2: Point) -> Vec<Point>{
+    fn draw_line(p1: &Point, p2: &Point) -> Vec<Point>{
 
         let mut ret_vec = Vec::new();
         let delta_x: i32 = p2.x - p1.x;
@@ -131,7 +151,7 @@ impl Raster {
         ret_vec
     }
 
-    fn draw_circle(mid_point: Point, radius: u32) -> Vec<Point>{
+    fn draw_circle(mid_point: &Point, radius: u32) -> Vec<Point>{
 
         let mut ret_vec = Vec::new();
 
@@ -201,10 +221,28 @@ impl Raster {
         ret_vec
     }
 
-    // fn is_visible(origin: Point, target: Point) -> bool {
+    fn do_viewshed(&self, origin: Point, radius: u32) -> ResultRaster {
+        let circle = Raster::draw_circle(&origin, radius);
+        self.check_raster(&circle, &origin)
+    }
+
     //
-    // }
-    //
+    fn check_raster(&self, circle: &Vec<Point>, origin: &Point) -> ResultRaster {
+        let mut result_vec = vec![false; 65_000];
+        for idx in 0..circle.len() {
+            let line = Raster::draw_line(origin,&circle[idx]);
+            let line_result = self.check_line(&line);
+            // println!("{:?}",line.iter().map(|el: &Point|{self.value_at(el) as f64}).collect::<Vec<f64>>());
+            // println!("{:?}",line_result);
+            let iter = line.iter().zip(line_result.iter());
+            for (point, result) in iter {
+                Raster::set_result(&mut result_vec, self.width, point, *result);
+            }
+        }
+        ResultRaster::new(result_vec, self.width, self.x0, self.y1)
+    }
+
+    // check a line of points for visibility from the first point
     fn check_line(&self, line: &Vec<Point>) -> Vec<bool> {
         let origin = &line[0];
 
@@ -216,7 +254,8 @@ impl Raster {
                 if p.x == origin.x && p.y == origin.y {
                     std::f64::NEG_INFINITY
                 } else {
-                    self.get_slope(origin,p)
+                    self.get_slope(origin, p)
+
                 }
             })
             .collect::<Vec<f64>>()
@@ -226,7 +265,6 @@ impl Raster {
                 if *curr_slope == std::f64::NEG_INFINITY {
                     true
                 } else {
-                    println!("{},{}",curr_slope, highest_slope);
                     if *curr_slope > highest_slope {
                         highest_slope = *curr_slope;
                         true
@@ -237,15 +275,13 @@ impl Raster {
             })
             .collect::<Vec<bool>>()
     }
-    //
-    // fn check_raster(&self, circle: Vec<Point>) -> ResultRaster {
-    //
-    // }
 }
 
 fn main() {
     let a: Raster = Raster::rand_raster();
+    let result = a.do_viewshed(Point{x:50, y:50}, 50);
+    // println!("{:?}",result.pixels);
     // let height = a.value_at(Point{x:5,y:5});
-    println!("{:?}",a.check_line(&Raster::draw_line(Point{x:0,y:0}, Point{x:0,y:10})));
+    // println!("{:?}", a.check_line(&Raster::draw_line(Point{x:0,y:0}, Point{x:0,y:10})));
     // println!("{:?}",line);
 }
