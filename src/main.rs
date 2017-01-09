@@ -1,6 +1,11 @@
 extern crate rand;
-static NO_VALUE: f32 = std::f32::MAX;
+extern crate image;
+
 use std::cmp::*;
+use std::fs::File;
+use std::path::Path;
+
+static NO_VALUE: f32 = std::f32::MAX;
 
 // x, y point
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
@@ -30,18 +35,90 @@ impl ResultRaster {
     }
 }
 
+enum HeightVal {
+    Height(f32),
+    NoData,
+}
+
+
+
 // struct for a raster
 #[allow(dead_code)]
 struct Raster{
     pixels: Vec<f32>, // num pixels
     width: u32,
     x0: f64, // related to extent?  maybe corner in mercator
-    y1: f64  // see above
+    y1: f64,  // see above
+    max_height: Option<f32>,
+    min_height: Option<f32>
 }
 
 // add methods to raster
 #[allow(dead_code)]
 impl Raster {
+
+    // convert raster's pixel to image buffer
+    // TODO write 0-255 generalize function
+    fn to_img(&self) -> image::ImageBuffer<image::Luma<u8>, Vec<u8>> {
+        let mut imgbuf = image::ImageBuffer::new(self.width, self.pixels.len() as u32/self.width);
+        // println!("{},{}",self.width, self.pixels.len() as u32/self.width);
+        for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
+            let grey_scale_val = self.f32_to_u8(self.value_at(&Point{x:x as i32,y:y as i32}));
+            *pixel = image::Luma([grey_scale_val]);
+        }
+        imgbuf
+    }
+
+    // set the min and max vals on a raster
+    fn set_min_max(& mut self){
+        self.max_height = Some(self.max());
+        self.min_height = Some(self.min());
+    }
+
+    // find max pixel in raster, returns value
+    fn max(&self) -> f32 {
+        // self.pixels.max()
+        self.pixels.iter().fold(std::f32::MIN, |acc, &pix_height| {
+            if pix_height > acc && pix_height != std::f32::MAX {
+                pix_height
+            } else {
+                acc
+            }
+        })
+    }
+
+    // find min pixel in raster, returns value
+    fn min(&self) -> f32 {
+        self.pixels.iter().fold(std::f32::MAX, |acc, &pix_height| {
+            if pix_height < acc {
+                pix_height
+            } else {
+                acc
+            }
+        })
+    }
+
+    // fit to 0-255
+    fn f32_to_u8(&self, height: f32) -> u8 {
+        if self.max_height.is_some() && self.min_height.is_some() {
+
+            let max = self.max_height.unwrap();
+            let min = self.min_height.unwrap();
+
+            let grey_scale_val = (((height - min) * (255.0 as f32 - 0.0 as f32)) / (max - min)) + 0.0 as f32;
+            grey_scale_val as u8
+        } else {
+            println!("Called f32_to_u8 without having a max and min!");
+            0 as u8
+        }
+    }
+
+    // save raster's pixels as png.  this uses to_img to first get an image buf
+    fn save_png(&self, file_path: &str){
+        let ref mut fout = File::create(&Path::new(file_path)).unwrap();
+        // We must indicate the image’s color type and what format to save as
+        let _ = image::ImageLuma8(self.to_img()).save(fout, image::PNG);
+    }
 
     // take an array[f32] and convert it to a vec[f32]
     fn array_to_vec(arr: &[f32]) -> Vec<f32> {
@@ -53,7 +130,9 @@ impl Raster {
             pixels: Raster::array_to_vec(source_raster),
             width: width,
             x0: x0,
-            y1: y1
+            y1: y1,
+            max_height: None,
+            min_height: None
         }
     }
 
@@ -107,6 +186,11 @@ impl Raster {
         }
         arr
     }
+
+    
+    // fn img_raster_source() -> [f32;65_000]{
+    //
+    // }
 
     // bresenham's line algorithm http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
     // give two points draw a line between them.  return vector of points as the line
@@ -277,9 +361,34 @@ impl Raster {
     }
 }
 
+
 fn main() {
-    let a: Raster = Raster::rand_raster();
-    let result = a.do_viewshed(Point{x:50, y:50}, 50);
+    // Use the open function to load an image from a Path.
+    // ```open``` returns a dynamic image.
+    /*
+        let img = image::open(&Path::new("ocean.png")).unwrap();
+        println!("dimensions {:?}", img.dimensions());
+        println!("{:?}", img.color());
+        let ref mut fout = File::create(&Path::new("test.png")).unwrap();
+        let _ = img.save(fout, image::PNG).unwrap();
+    */
+
+    // let imgx: u32 = 800;
+    // let imgy: u32 = 800;
+    //
+    // let mut imgbuf = image::ImageBuffer::new(imgx, imgy);
+    //
+    // for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
+    //     println!("{},{}: {}", x, y, pixel);
+    // }
+
+
+    let mut random_raster: Raster = Raster::rand_raster();
+    random_raster.set_min_max();
+    // println!("{}",random_raster.f32_to_u8(0.0 as f32));
+    // println!("{} to {}",random_raster.min(), random_raster.max());
+    random_raster.save_png("sample.png");
+    // let result = a.do_viewshed(Point{x:50, y:50}, 50);
     // println!("{:?}",result.pixels);
     // let height = a.value_at(Point{x:5,y:5});
     // println!("{:?}", a.check_line(&Raster::draw_line(Point{x:0,y:0}, Point{x:0,y:10})));

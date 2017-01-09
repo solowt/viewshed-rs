@@ -18,3 +18,11 @@
 * All elevation data seems to be in 255X255 (array with ~65k elements) rasters.
 * There is a root raster ("tile") and children tiles.
 * Need to figure out relationship between parent and children tiles.
+
+## TO DO (in order):
+
+* Get PNG of elevation data
+* Stop using arrays, only use vectors (array size must be known at compile time)
+* Read in PNG, create Raster struct from PNG
+* Perform viewshed on read-in PNG
+* Add result_raster to PNG method (should be black and white)
