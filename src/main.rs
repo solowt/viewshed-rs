@@ -211,9 +211,9 @@ impl Raster {
         Raster::new(&Raster::rand_raster_source(), 255 as u32, rand::random::<f64>(), rand::random::<f64>())
     }
 
-    fn rand_raster_source() -> [f32;65_000]{
+    fn rand_raster_source() -> [f32;65_536]{
         let mut last_height: f32 = 0.0;
-        let mut arr: [f32; 65_000] = [5.5; 65_000];
+        let mut arr: [f32; 65_536] = [5.5; 65_536];
         for i in 0..arr.len() {
             // let pos_or_neg: f32 = if rand::random::<f32>() > 0.5 { 1.0 } else { -1.0 };
             // let curr_height = last_height + rand::random::<f32>() * pos_or_neg;
@@ -224,7 +224,7 @@ impl Raster {
     }
 
 
-    // fn img_raster_source() -> [f32;65_000]{
+    // fn img_raster_source() -> [f32;65_536]{
     //
     // }
 
@@ -346,7 +346,7 @@ impl Raster {
 
     //
     fn check_raster(&self, circle: &Vec<Point>, origin: &Point) -> ResultRaster {
-        let mut result_vec = vec![false; 65_000];
+        let mut result_vec = vec![false; 65_536];
         let mut i = 0;
         for point in circle {
             let line = Raster::draw_line(origin,point);
