@@ -33,6 +33,43 @@ impl ResultRaster {
             y1: y1
         }
     }
+    fn to_img(&self) -> image::ImageBuffer<image::Luma<u8>, Vec<u8>> {
+        let mut imgbuf = image::ImageBuffer::new(self.width, self.pixels.len() as u32/self.width);
+        // println!("{},{}",self.width, self.pixels.len() as u32/self.width);
+        let mut i = 0;
+        for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
+            let grey_scale_val = if self.value_at(&Point{x:x as i32,y:y as i32}) == true { 255 } else { 0 };
+            *pixel = image::Luma([grey_scale_val]);
+        }
+        imgbuf
+    }
+
+    fn check_result(&self) {
+        let mut num_false = 0;
+        let mut num_true = 0;
+        for pixel in &self.pixels {
+            if *pixel == true { num_true+=1; } else { num_false+=1; }
+        }
+        println!("True: {}; False: {}",num_true, num_false);
+    }
+
+    #[allow(dead_code)]
+    // return pixel value @ x,y
+    fn value_at(&self, point: &Point) -> bool {
+        if self.pixels.len() > 0 {
+            let idx: u32 = (self.width * point.y.abs() as u32) + point.x.abs() as u32;
+            self.pixels[idx as usize]
+        } else {
+            // else return max val for f32
+            false
+        }
+    }
+
+    fn save_png(&self, file_path: &str){
+        let ref mut fout = File::create(&Path::new(file_path)).unwrap();
+        // We must indicate the image’s color type and what format to save as
+        let _ = image::ImageLuma8(self.to_img()).save(fout, image::PNG);
+    }
 }
 
 enum HeightVal {
@@ -58,7 +95,6 @@ struct Raster{
 impl Raster {
 
     // convert raster's pixel to image buffer
-    // TODO write 0-255 generalize function
     fn to_img(&self) -> image::ImageBuffer<image::Luma<u8>, Vec<u8>> {
         let mut imgbuf = image::ImageBuffer::new(self.width, self.pixels.len() as u32/self.width);
         // println!("{},{}",self.width, self.pixels.len() as u32/self.width);
@@ -161,7 +197,7 @@ impl Raster {
     }
 
     fn set_result(raster: &mut Vec<bool>, width: u32, point: &Point, value: bool){
-        let idx: u32 = (width * point.y.abs() as u32) + point.x.abs() as u32;
+        let idx: u32 = width * point.y.abs() as u32 + point.x.abs() as u32;
         raster[idx as usize] = value;
     }
 
@@ -177,17 +213,18 @@ impl Raster {
 
     fn rand_raster_source() -> [f32;65_000]{
         let mut last_height: f32 = 0.0;
-        let mut arr: [f32; 65_000] = [0.0; 65_000];
-        for i in 0..arr.len() {
-            let pos_or_neg: f32 = if rand::random::<f32>() > 0.5 { 1.0 } else { -1.0 };
-            let curr_height = last_height + rand::random::<f32>() * pos_or_neg;
-            arr[i] = curr_height;
-            last_height = curr_height;
-        }
+        let mut arr: [f32; 65_000] = [5.5; 65_000];
+        // for i in 0..arr.len() {
+        //     let pos_or_neg: f32 = if rand::random::<f32>() > 0.5 { 1.0 } else { -1.0 };
+        //     let curr_height = last_height + rand::random::<f32>() * pos_or_neg;
+        //     arr[i] = curr_height;
+        //     last_height = curr_height;
+        //     // arr[i] = 50 as f32;
+        // }
         arr
     }
 
-    
+
     // fn img_raster_source() -> [f32;65_000]{
     //
     // }
@@ -300,7 +337,6 @@ impl Raster {
                 }
             }
         });
-
         ret_vec.dedup();
         ret_vec
     }
@@ -313,13 +349,17 @@ impl Raster {
     //
     fn check_raster(&self, circle: &Vec<Point>, origin: &Point) -> ResultRaster {
         let mut result_vec = vec![false; 65_000];
-        for idx in 0..circle.len() {
-            let line = Raster::draw_line(origin,&circle[idx]);
+        let mut i = 0;
+        for point in circle {
+            let line = Raster::draw_line(origin,point);
             let line_result = self.check_line(&line);
+            // println!("{}:{}",line_result.len(),line.len());
             // println!("{:?}",line.iter().map(|el: &Point|{self.value_at(el) as f64}).collect::<Vec<f64>>());
             // println!("{:?}",line_result);
             let iter = line.iter().zip(line_result.iter());
             for (point, result) in iter {
+                // if *result == true { i=i+1;println!("{}",i); }
+                // println!("{}",*result);
                 Raster::set_result(&mut result_vec, self.width, point, *result);
             }
         }
@@ -329,17 +369,15 @@ impl Raster {
     // check a line of points for visibility from the first point
     fn check_line(&self, line: &Vec<Point>) -> Vec<bool> {
         let origin = &line[0];
-
         let mut highest_slope: f64 = std::f64::NEG_INFINITY;
 
         // take line of points, map to line of slopes
         line.iter()
             .map(|p: &Point| {
-                if p.x == origin.x && p.y == origin.y {
+                if p == origin {
                     std::f64::NEG_INFINITY
                 } else {
                     self.get_slope(origin, p)
-
                 }
             })
             .collect::<Vec<f64>>()
@@ -349,7 +387,7 @@ impl Raster {
                 if *curr_slope == std::f64::NEG_INFINITY {
                     true
                 } else {
-                    if *curr_slope > highest_slope {
+                    if *curr_slope >= highest_slope {
                         highest_slope = *curr_slope;
                         true
                     } else {
@@ -388,7 +426,9 @@ fn main() {
     // println!("{}",random_raster.f32_to_u8(0.0 as f32));
     // println!("{} to {}",random_raster.min(), random_raster.max());
     random_raster.save_png("sample.png");
-    // let result = a.do_viewshed(Point{x:50, y:50}, 50);
+    let result = random_raster.do_viewshed(Point{x:128, y:128}, 100);
+    result.save_png("result.png");
+    result.check_result();
     // println!("{:?}",result.pixels);
     // let height = a.value_at(Point{x:5,y:5});
     // println!("{:?}", a.check_line(&Raster::draw_line(Point{x:0,y:0}, Point{x:0,y:10})));
