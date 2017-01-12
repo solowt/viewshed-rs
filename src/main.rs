@@ -214,13 +214,12 @@ impl Raster {
     fn rand_raster_source() -> [f32;65_000]{
         let mut last_height: f32 = 0.0;
         let mut arr: [f32; 65_000] = [5.5; 65_000];
-        // for i in 0..arr.len() {
-        //     let pos_or_neg: f32 = if rand::random::<f32>() > 0.5 { 1.0 } else { -1.0 };
-        //     let curr_height = last_height + rand::random::<f32>() * pos_or_neg;
-        //     arr[i] = curr_height;
-        //     last_height = curr_height;
-        //     // arr[i] = 50 as f32;
-        // }
+        for i in 0..arr.len() {
+            // let pos_or_neg: f32 = if rand::random::<f32>() > 0.5 { 1.0 } else { -1.0 };
+            // let curr_height = last_height + rand::random::<f32>() * pos_or_neg;
+            // arr[i] = curr_height;
+            // last_height = curr_height;
+        }
         arr
     }
 
@@ -297,8 +296,7 @@ impl Raster {
             if err <= 0 {
                 y += 1;
                 err += 2*y + 1;
-            }
-            if err > 0 {
+            } else if err > 0 {
                 x -= 1;
                 err -= 2*x + 1;
             }
