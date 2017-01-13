@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 extern crate rand;
 extern crate image;
 
@@ -6,6 +8,7 @@ use std::fs::File;
 use std::path::Path;
 
 static NO_VALUE: f32 = std::f32::MAX;
+static LEN: usize = 66_049;
 
 // x, y point
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
@@ -15,76 +18,76 @@ struct Point{
 }
 
 
-// result of viewshed
+// result of viewshed - array of bools
 #[allow(dead_code)]
 struct ResultRaster{
-    pixels: Vec<bool>,
+    pixels: [bool; 66_049],
     width: u32,
     x0: f64,
     y1: f64
 }
 
+// methods for result raster
 impl ResultRaster {
-    fn new(result_vec: Vec<bool>, width:u32, x0: f64, y1: f64) -> ResultRaster {
+    
+    // create new result raster
+    fn new(result_array: [bool; 66_049], width:u32, x0: f64, y1: f64) -> ResultRaster {
         ResultRaster{
-            pixels: result_vec,
+            pixels: result_array,
             width: width,
             x0: x0,
             y1: y1
         }
     }
+
+    // save the result raster an image: png.  uses to_img
+    fn save_png(&self, file_path: &str){
+        let ref mut fout = File::create(&Path::new(file_path)).unwrap();
+        // We must indicate the image’s color type and what format to save as
+        let _ = image::ImageLuma8(self.to_img()).save(fout, image::PNG);
+    }
+
+    // convert result raster's pixels to an image buffer, will be black and white
     fn to_img(&self) -> image::ImageBuffer<image::Luma<u8>, Vec<u8>> {
         
+        // image buffer, size matches result's pixels
         let mut imgbuf = image::ImageBuffer::new(self.width, self.pixels.len() as u32/self.width);
-        let mut i = 0;
         
+        // iterate over image buffer
         for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
+            // convert bool to black or white: u8
             let grey_scale_val = if self.value_at(&Point{x:x as i32,y:y as i32}) == true { 255 } else { 0 };
             *pixel = image::Luma([grey_scale_val]);
         }
         imgbuf
     }
 
+    // check the result's pixels.  count how many trues and falses and print
     fn check_result(&self) {
         let mut num_false = 0;
         let mut num_true = 0;
-        for pixel in &self.pixels {
+
+        for pixel in self.pixels.iter() {
             if *pixel == true { num_true+=1; } else { num_false+=1; }
         }
+
         println!("True: {}; False: {}",num_true, num_false);
     }
 
-    #[allow(dead_code)]
     // return pixel value @ x,y
     fn value_at(&self, point: &Point) -> bool {
-        if self.pixels.len() > 0 {
-            let idx: u32 = (self.width * point.y.abs() as u32) + point.x.abs() as u32;
-            self.pixels[idx as usize]
-        } else {
-            // else return max val for f32
-            false
-        }
+        let idx: u32 = (self.width * point.y.abs() as u32) + point.x.abs() as u32;
+        
+        self.pixels[idx as usize]
+
     }
 
-    fn save_png(&self, file_path: &str){
-        let ref mut fout = File::create(&Path::new(file_path)).unwrap();
-        // We must indicate the image’s color type and what format to save as
-        let _ = image::ImageLuma8(self.to_img()).save(fout, image::PNG);
-    }
 }
 
-enum HeightVal {
-    Height(f32),
-    NoData,
-}
-
-
-
-// struct for a raster
-#[allow(dead_code)]
+// struct for a raster: this raster's pixels contain elevation data
 struct Raster{
-    pixels: Vec<f32>, // num pixels
-    width: u32,
+    pixels: [f32; 66_049], // height array
+    width: u32, // width of raster
     x0: f64, // related to extent?  maybe corner in mercator
     y1: f64,  // see above
     max_height: Option<f32>,
@@ -92,7 +95,6 @@ struct Raster{
 }
 
 // add methods to raster
-#[allow(dead_code)]
 impl Raster {
 
     // convert raster's pixel to image buffer
@@ -135,7 +137,7 @@ impl Raster {
         })
     }
 
-    // fit to 0-255
+    // fit to 0-255 - go from f32 height to u8 for greyscale image
     fn f32_to_u8(&self, height: f32) -> u8 {
         if self.max_height.is_some() && self.min_height.is_some() {
 
@@ -145,26 +147,20 @@ impl Raster {
             let grey_scale_val = (((height - min) * (255.0 as f32 - 0.0 as f32)) / (max - min)) + 0.0 as f32;
             grey_scale_val as u8
         } else {
-            println!("Called f32_to_u8 without having a max and min!");
-            0 as u8
+            panic!("Called f32_to_u8 without having a max and min!");
         }
     }
 
     // save raster's pixels as png.  this uses to_img to first get an image buf
     fn save_png(&self, file_path: &str){
         let ref mut fout = File::create(&Path::new(file_path)).unwrap();
-        // We must indicate the image’s color type and what format to save as
+
         let _ = image::ImageLuma8(self.to_img()).save(fout, image::PNG);
     }
 
-    // take an array[f32] and convert it to a vec[f32]
-    fn array_to_vec(arr: &[f32]) -> Vec<f32> {
-        arr.iter().cloned().collect()
-    }
-
-    fn new(source_raster: &[f32], width: u32, x0: f64, y1: f64) -> Raster{
+    fn new(source_raster: [f32; 66_049], width: u32, x0: f64, y1: f64) -> Raster{
         Raster{
-            pixels: Raster::array_to_vec(source_raster),
+            pixels: source_raster,
             width: width,
             x0: x0,
             y1: y1,
@@ -173,54 +169,41 @@ impl Raster {
         }
     }
 
-    #[allow(dead_code)]
+    // distance formula
     fn get_dist(&self, p1: &Point, p2: &Point) -> f64{
             (((p2.x-p1.x).pow(2) + (p2.y-p1.y).pow(2)) as f64).sqrt()
     }
 
+    // slope formula
     fn get_slope(&self, p1: &Point, p2: &Point) -> f64{
         let h1 = self.value_at(p1);
         let h2 = self.value_at(p2);
-        // println!("p1 height: {}, p2 height: {}", h1, h2);
+
         (h2-h1) as f64/self.get_dist(p1,p2)
     }
 
-    #[allow(dead_code)]
     // return pixel value @ x,y
     fn value_at(&self, point: &Point) -> f32 {
-        if self.pixels.len() > 0 {
-            let idx: u32 = (self.width * point.y.abs() as u32) + point.x.abs() as u32;
-            self.pixels[idx as usize]
-        } else {
-            // else return max val for f32
-            NO_VALUE
-        }
+        let idx: u32 = (self.width * point.y.abs() as u32) + point.x.abs() as u32;
+
+        self.pixels[idx as usize]
     }
 
-    fn set_result(raster: &mut Vec<bool>, width: u32, point: &Point, value: bool){
-        let idx: u32 = width * point.y.abs() as u32 + point.x.abs() as u32;
-        raster[idx as usize] = value;
-    }
-
-    #[allow(dead_code)]
-    // set raster source
-    fn set_raster(&mut self, raster: &[f32]){
-        self.pixels = Raster::array_to_vec(raster);
-    }
-
+    // generate a test raster
     fn rand_raster() -> Raster{
-        Raster::new(&Raster::rand_raster_source(), 256 as u32, rand::random::<f64>(), rand::random::<f64>())
+        Raster::new(Raster::rand_raster_source(), 256 as u32, rand::random::<f64>(), rand::random::<f64>())
     }
 
-    fn rand_raster_source() -> [f32;65_536]{
+    // do the generation here: currently the raster is flat.
+    fn rand_raster_source() -> [f32;66_049]{
         let mut last_height: f32 = 0.0;
-        let mut arr: [f32; 65_536] = [5.5; 65_536];
-        for i in 0..arr.len() {
+        let mut arr: [f32; 66_049] = [5.5; 66_049];
+        // for i in 0..arr.len() {
             // let pos_or_neg: f32 = if rand::random::<f32>() > 0.5 { 1.0 } else { -1.0 };
             // let curr_height = last_height + rand::random::<f32>() * pos_or_neg;
             // arr[i] = curr_height;
             // last_height = curr_height;
-        }
+        // }
         arr
     }
 
@@ -331,33 +314,38 @@ impl Raster {
                 }
             }
         });
+
         ret_vec.dedup();
         ret_vec
     }
 
+    // perform viewshed
     fn do_viewshed(&self, origin: Point, radius: u32) -> ResultRaster {
         let circle = Raster::draw_circle(&origin, radius);
         self.check_raster(&circle, &origin)
     }
 
-    //
+    // check a raster
     fn check_raster(&self, circle: &Vec<Point>, origin: &Point) -> ResultRaster {
-        let mut result_vec = vec![false; 65_536];
+        let mut result_array = [false; 66_049];
         let mut i = 0;
         for point in circle {
+
             let line = Raster::draw_line(origin,point);
             let line_result = self.check_line(&line);
-            // println!("{}:{}",line_result.len(),line.len());
-            // println!("{:?}",line.iter().map(|el: &Point|{self.value_at(el) as f64}).collect::<Vec<f64>>());
-            // println!("{:?}",line_result);
             let iter = line.iter().zip(line_result.iter());
+
             for (point, result) in iter {
-                // if *result == true { i=i+1;println!("{}",i); }
-                // println!("{}",*result);
-                Raster::set_result(&mut result_vec, self.width, point, *result);
+                result_array[self.point_to_idx(point)] = *result;
+                // Raster::set_result(&mut result_vec, self.width, point, *result);
             }
         }
-        ResultRaster::new(result_vec, self.width, self.x0, self.y1)
+        ResultRaster::new(result_array, self.width, self.x0, self.y1)
+    }
+
+    fn point_to_idx(&self, point: &Point) -> usize {
+        let idx: u32 = (self.width * point.y.abs() as u32) + point.x.abs() as u32;
+        idx as usize
     }
 
     // check a line of points for visibility from the first point
@@ -393,38 +381,43 @@ impl Raster {
     }
 }
 
+fn read_array_from_file(filename: &str) -> [f32; 66_049] {
+    use std::io::prelude::*;
+    use std::io::BufReader;
+    use std::fs::File;
+    use std::path::Path;
+
+    let mut ret_array: [f32; 66_049] = [NO_VALUE; 66_049];
+
+    let file = File::open(filename).expect("no such file");
+    let buf = BufReader::new(file);
+    for (idx, val) in buf.split(b',').enumerate() {
+        let byte_vec = &val.unwrap();
+        // let my_int: i32 = my_string.parse().unwrap();
+
+        let height = std::str::from_utf8(byte_vec).unwrap().parse::<f32>().unwrap();
+        ret_array[idx] = height;
+        // println!("{},{:?}", idx, height);
+    }
+
+    ret_array
+}
+
 
 fn main() {
-    // Use the open function to load an image from a Path.
-    // ```open``` returns a dynamic image.
-    /*
-        let img = image::open(&Path::new("ocean.png")).unwrap();
-        println!("dimensions {:?}", img.dimensions());
-        println!("{:?}", img.color());
-        let ref mut fout = File::create(&Path::new("test.png")).unwrap();
-        let _ = img.save(fout, image::PNG).unwrap();
-    */
 
-    // let imgx: u32 = 800;
-    // let imgy: u32 = 800;
-    //
-    // let mut imgbuf = image::ImageBuffer::new(imgx, imgy);
-    //
-    // for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
-    //     println!("{},{}: {}", x, y, pixel);
-    // }
+    // println!("{}",NO_VALUE);
+    let mut raster = Raster::new(read_array_from_file("elevationdata.txt"), 256 as u32, rand::random::<f64>(), rand::random::<f64>());
+    raster.set_min_max();
+    // raster.save_png("sample.png");
 
-
-    let mut random_raster: Raster = Raster::rand_raster();
-    random_raster.set_min_max();
-    // println!("{}",random_raster.f32_to_u8(0.0 as f32));
-    // println!("{} to {}",random_raster.min(), random_raster.max());
-    random_raster.save_png("sample.png");
-    let result = random_raster.do_viewshed(Point{x:128, y:128}, 100);
+    let result = raster.do_viewshed(Point{x:128, y:0}, 100);
     result.save_png("result.png");
-    result.check_result();
-    // println!("{:?}",result.pixels);
-    // let height = a.value_at(Point{x:5,y:5});
-    // println!("{:?}", a.check_line(&Raster::draw_line(Point{x:0,y:0}, Point{x:0,y:10})));
-    // println!("{:?}",line);
+    // result.check_result();
+
+    // let mut random_raster: Raster = Raster::rand_raster();
+    // random_raster.save_png("sample.png");
+    // let result = random_raster.do_viewshed(Point{x:128, y:128}, 100);
+    // result.save_png("result.png");
+    // result.check_result();
 }
