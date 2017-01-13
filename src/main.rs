@@ -34,9 +34,10 @@ impl ResultRaster {
         }
     }
     fn to_img(&self) -> image::ImageBuffer<image::Luma<u8>, Vec<u8>> {
+        
         let mut imgbuf = image::ImageBuffer::new(self.width, self.pixels.len() as u32/self.width);
-        // println!("{},{}",self.width, self.pixels.len() as u32/self.width);
         let mut i = 0;
+        
         for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
             let grey_scale_val = if self.value_at(&Point{x:x as i32,y:y as i32}) == true { 255 } else { 0 };
             *pixel = image::Luma([grey_scale_val]);
@@ -97,7 +98,7 @@ impl Raster {
     // convert raster's pixel to image buffer
     fn to_img(&self) -> image::ImageBuffer<image::Luma<u8>, Vec<u8>> {
         let mut imgbuf = image::ImageBuffer::new(self.width, self.pixels.len() as u32/self.width);
-        // println!("{},{}",self.width, self.pixels.len() as u32/self.width);
+
         for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
             let grey_scale_val = self.f32_to_u8(self.value_at(&Point{x:x as i32,y:y as i32}));
             *pixel = image::Luma([grey_scale_val]);
@@ -208,7 +209,7 @@ impl Raster {
     }
 
     fn rand_raster() -> Raster{
-        Raster::new(&Raster::rand_raster_source(), 255 as u32, rand::random::<f64>(), rand::random::<f64>())
+        Raster::new(&Raster::rand_raster_source(), 256 as u32, rand::random::<f64>(), rand::random::<f64>())
     }
 
     fn rand_raster_source() -> [f32;65_536]{
@@ -222,11 +223,6 @@ impl Raster {
         }
         arr
     }
-
-
-    // fn img_raster_source() -> [f32;65_536]{
-    //
-    // }
 
     // bresenham's line algorithm http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
     // give two points draw a line between them.  return vector of points as the line
