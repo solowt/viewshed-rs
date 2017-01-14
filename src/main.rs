@@ -197,10 +197,43 @@ impl Raster {
 
     // slope formula
     fn get_slope(&self, p1: &Point, p2: &Point) -> f64{
-        let h1 = self.value_at(p1);
-        let h2 = self.value_at(p2);
+        let mut h1 = self.value_at(p1);
+        let mut h2 = self.value_at(p2);
+
+        if h1 == NO_VALUE { h1 = self.get_height_recur(p1); }
+        if h2 == NO_VALUE { h2 = self.get_height_recur(p2); }
+
 
         (h2-h1) as f64/self.get_dist(p1,p2)
+    }
+
+    fn get_height_recur(&self,p: &Point) -> f32 {
+        let mut heights = Vec::new();
+
+        let h1 = self.value_at(&Point{x:p.x+1,y:p.y});
+        let h2 = self.value_at(&Point{x:p.x-1,y:p.y});
+        let h3 = self.value_at(&Point{x:p.x,y:p.y+1});
+        let h4 = self.value_at(&Point{x:p.x,y:p.y-1});
+        let h5 = self.value_at(&Point{x:p.x+1,y:p.y+1});
+        let h6 = self.value_at(&Point{x:p.x-1,y:p.y-1});
+        let h7 = self.value_at(&Point{x:p.x-1,y:p.y+1});
+        let h8 = self.value_at(&Point{x:p.x+1,y:p.y-1});
+
+        if h1 != NO_VALUE { heights.push(h1) }
+        if h2 != NO_VALUE { heights.push(h2) }
+        if h3 != NO_VALUE { heights.push(h3) }
+        if h4 != NO_VALUE { heights.push(h4) }
+        if h5 != NO_VALUE { heights.push(h5) }
+        if h6 != NO_VALUE { heights.push(h6) }
+        if h7 != NO_VALUE { heights.push(h7) }
+        if h8 != NO_VALUE { heights.push(h8) }
+
+
+        let sum = heights.iter().fold(0.0 as f32,|acc, &pix_height|{
+            acc + pix_height
+        });
+
+        sum / heights.len() as f32
     }
 
     // return pixel value @ x,y
@@ -433,7 +466,7 @@ fn main() {
     // raster.save_png("sampleChild2.png");
     // raster.save_png_no_data("data-gaps.png");
 
-    let result = raster.do_viewshed(Point{x:128, y:200}, 50);
+    let result = raster.do_viewshed(Point{x:128, y:225}, 27);
     result.save_png("result.png");
     // result.check_result();
 
