@@ -108,6 +108,18 @@ impl Raster {
         imgbuf
     }
 
+    fn to_no_data(&self) -> image::ImageBuffer<image::Luma<u8>, Vec<u8>> {
+        let mut imgbuf = image::ImageBuffer::new(self.width, self.pixels.len() as u32/self.width);
+        let mut no_data_num = 0;
+
+        for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
+            let grey_scale_val = if self.value_at(&Point{x:x as i32,y:y as i32}) == NO_VALUE { no_data_num+=1; 0 } else { 255 };
+            *pixel = image::Luma([grey_scale_val]);
+        }
+        println!("{}",no_data_num);
+        imgbuf
+    }
+
     // set the min and max vals on a raster
     fn set_min_max(& mut self){
         self.max_height = Some(self.max());
@@ -157,6 +169,15 @@ impl Raster {
 
         let _ = image::ImageLuma8(self.to_img()).save(fout, image::PNG);
     }
+
+    // save raster's pixels as png.  this uses to_img to first get an image buf
+    fn save_png_no_data(&self, file_path: &str){
+        let ref mut fout = File::create(&Path::new(file_path)).unwrap();
+
+        let _ = image::ImageLuma8(self.to_no_data()).save(fout, image::PNG);
+    }
+
+
 
     fn new(source_raster: [f32; 66_049], width: u32, x0: f64, y1: f64) -> Raster{
         Raster{
@@ -397,7 +418,6 @@ fn read_array_from_file(filename: &str) -> [f32; 66_049] {
 
         let height = std::str::from_utf8(byte_vec).unwrap().parse::<f32>().unwrap();
         ret_array[idx] = height;
-        // println!("{},{:?}", idx, height);
     }
 
     ret_array
@@ -407,15 +427,16 @@ fn read_array_from_file(filename: &str) -> [f32; 66_049] {
 fn main() {
 
     // println!("{}",NO_VALUE);
-    let mut raster = Raster::new(read_array_from_file("elevationdata.txt"), 256 as u32, rand::random::<f64>(), rand::random::<f64>());
+    let mut raster = Raster::new(read_array_from_file("child2.txt"), 257 as u32, rand::random::<f64>(), rand::random::<f64>());
+    // let mut raster: Raster = Raster::rand_raster();
     raster.set_min_max();
-    // raster.save_png("sample.png");
+    // raster.save_png("sampleChild2.png");
+    // raster.save_png_no_data("data-gaps.png");
 
-    let result = raster.do_viewshed(Point{x:128, y:0}, 100);
+    let result = raster.do_viewshed(Point{x:128, y:200}, 50);
     result.save_png("result.png");
     // result.check_result();
 
-    // let mut random_raster: Raster = Raster::rand_raster();
     // random_raster.save_png("sample.png");
     // let result = random_raster.do_viewshed(Point{x:128, y:128}, 100);
     // result.save_png("result.png");
