@@ -15,14 +15,19 @@
 
 * Represented by f32 Array with known width.
 * There should exist a simple method for moving between raster space and map space (find this in Esri JS API source code).
-* All elevation data seems to be in 255X255 (array with ~65k elements) rasters.
+* All elevation data seems to be in 256X256 (array with ~66049 (27^2) elements) rasters.
 * There is a root raster ("tile") and children tiles.
 * Need to figure out relationship between parent and children tiles.
 
 ## TO DO (in order):
 
-* Get PNG of elevation data
-* Stop using arrays, only use vectors (array size must be known at compile time)
-* Read in PNG, create Raster struct from PNG
-* Perform viewshed on read-in PNG
-* Add result_raster to PNG method (should be black and white)
+*  Fix up .unwrap logic.  Move min/max to Raster.
+*  Create CLI tool.
+*  Prompt for data => read data.
+*  Prompt for tasks: no data raster, print image, viewshed.
+*  Viewshed => prompt for coords, save image
+*  Back to prompt
+
+*  Handle circle being drawn off raster.
+
+*  Find best tile in browser.  where is it?  Tilemap?  Pool?  Check for elevation layer on change.  Search API.  Can also make another request if needed.

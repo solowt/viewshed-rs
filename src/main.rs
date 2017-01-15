@@ -86,7 +86,7 @@ impl ResultRaster {
 
 // struct for a raster: this raster's pixels contain elevation data
 struct Raster{
-    pixels: [f32; 66_049], // height array
+    pixels: [Option<f32>; 66_049], // height array
     width: u32, // width of raster
     x0: f64, // related to extent?  maybe corner in mercator
     y1: f64,  // see above
@@ -130,22 +130,32 @@ impl Raster {
     fn max(&self) -> f32 {
         // self.pixels.max()
         self.pixels.iter().fold(std::f32::MIN, |acc, &pix_height| {
-            if pix_height > acc && pix_height != std::f32::MAX {
-                pix_height
+            if pix_height.is_some() && pix_height.unwrap() > acc {
+                pix_height.unwrap()
             } else {
                 acc
             }
+            // if height != None && height > acc {
+            //     height
+            // } else {
+            //     acc
+            // }
         })
     }
 
     // find min pixel in raster, returns value
     fn min(&self) -> f32 {
         self.pixels.iter().fold(std::f32::MAX, |acc, &pix_height| {
-            if pix_height < acc {
-                pix_height
+            if pix_height.is_some() && pix_height.unwrap() < acc {
+                pix_height.unwrap()
             } else {
                 acc
             }
+            // if pix_height < acc {
+            //     pix_height
+            // } else {
+            //     acc
+            // }
         })
     }
 
@@ -179,7 +189,7 @@ impl Raster {
 
 
 
-    fn new(source_raster: [f32; 66_049], width: u32, x0: f64, y1: f64) -> Raster{
+    fn new(source_raster: [Option<f32>; 66_049], width: u32, x0: f64, y1: f64) -> Raster{
         Raster{
             pixels: source_raster,
             width: width,
@@ -239,8 +249,11 @@ impl Raster {
     // return pixel value @ x,y
     fn value_at(&self, point: &Point) -> f32 {
         let idx: u32 = (self.width * point.y.abs() as u32) + point.x.abs() as u32;
-
-        self.pixels[idx as usize]
+        if (self.pixels[idx as usize].is_some()){
+            self.pixels[idx as usize].unwrap()
+        } else {
+            NO_VALUE
+        }
     }
 
     // generate a test raster
@@ -249,16 +262,17 @@ impl Raster {
     }
 
     // do the generation here: currently the raster is flat.
-    fn rand_raster_source() -> [f32;66_049]{
-        let mut last_height: f32 = 0.0;
-        let mut arr: [f32; 66_049] = [5.5; 66_049];
+    fn rand_raster_source() -> [Option<f32>;66_049]{
+        // let mut last_height: f32 = 0.0;
+        // let mut arr: [Option<f32>; 66_049] = [Some(5.5); 66_049];
         // for i in 0..arr.len() {
             // let pos_or_neg: f32 = if rand::random::<f32>() > 0.5 { 1.0 } else { -1.0 };
             // let curr_height = last_height + rand::random::<f32>() * pos_or_neg;
             // arr[i] = curr_height;
             // last_height = curr_height;
         // }
-        arr
+        // arr
+        [Some(5.5); 66_049]
     }
 
     // bresenham's line algorithm http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
@@ -435,39 +449,84 @@ impl Raster {
     }
 }
 
-fn read_array_from_file(filename: &str) -> [f32; 66_049] {
+fn read_array_from_file(filename: &str) -> [Option<f32>; 66_049] {
     use std::io::prelude::*;
     use std::io::BufReader;
     use std::fs::File;
     use std::path::Path;
 
-    let mut ret_array: [f32; 66_049] = [NO_VALUE; 66_049];
 
     let file = File::open(filename).expect("no such file");
     let buf = BufReader::new(file);
+
+    let mut ret_array: [Option<f32>; 66_049] = [None; 66_049];
+
     for (idx, val) in buf.split(b',').enumerate() {
         let byte_vec = &val.unwrap();
-        // let my_int: i32 = my_string.parse().unwrap();
 
         let height = std::str::from_utf8(byte_vec).unwrap().parse::<f32>().unwrap();
-        ret_array[idx] = height;
+        if height == NO_VALUE {
+            ret_array[idx] = None;
+        } else {
+           ret_array[idx] = Some(height);    
+        }
     }
 
     ret_array
 }
 
+fn getTask(){
+    println!("1: Print raster as PNG. 2: Print no zones as PNG.  3: Perform viewshed.\n");
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)
+        .ok()
+        .expect("Couldn't read line");
+
+    let trimmed = input.trim();
+
+    if trimmed == "1" {
+
+    } else if trimmed == "2" {
+
+    } else if trimmed == "3" {
+
+    } else {
+        println!("\nInvalid Input.\n");
+        getTask();
+    }
+}
+
 
 fn main() {
 
-    // println!("{}",NO_VALUE);
-    let mut raster = Raster::new(read_array_from_file("child2.txt"), 257 as u32, rand::random::<f64>(), rand::random::<f64>());
-    // let mut raster: Raster = Raster::rand_raster();
-    raster.set_min_max();
-    // raster.save_png("sampleChild2.png");
-    // raster.save_png_no_data("data-gaps.png");
+    use std::io;
 
-    let result = raster.do_viewshed(Point{x:128, y:225}, 27);
-    result.save_png("result.png");
+    loop {
+        println!("Enter Filename.\n");
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)
+            .ok()
+            .expect("Couldn't read line");    
+        let mut raster = Raster::new(read_array_from_file(input.trim()), 257 as u32, rand::random::<f64>(), rand::random::<f64>());
+
+        getTask();
+    }
+
+
+    // println!("{}",NO_VALUE);
+    
+    // let mut raster = Raster::new(read_array_from_file("test.txt"), 257 as u32, rand::random::<f64>(), rand::random::<f64>());
+    // raster.set_min_max();
+
+    // raster.save_png("test1.png");
+
+    // let mut raster: Raster = Raster::rand_raster();
+    // raster.save_png_no_data("data-gaps.png"); 
+
+    // let result = raster.do_viewshed(Point{x:128, y:128}, 125);
+    // result.save_png("result.png");
+
+
     // result.check_result();
 
     // random_raster.save_png("sample.png");
