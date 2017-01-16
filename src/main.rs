@@ -102,9 +102,14 @@ impl Raster {
         let mut imgbuf = image::ImageBuffer::new(self.width, self.pixels.len() as u32/self.width);
 
         for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
-            let grey_scale_val = self.f32_to_u8(self.value_at(&Point{x:x as i32,y:y as i32}));
-            *pixel = image::Luma([grey_scale_val]);
+            let height = self.value_at(&Point{x:x as i32,y:y as i32});
+
+            *pixel = match height {
+                Some(h) => image::Luma([self.f32_to_u8(h)]),
+                None    => image::Luma([0])
+            };
         }
+
         imgbuf
     }
 
@@ -113,10 +118,14 @@ impl Raster {
         let mut no_data_num = 0;
 
         for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
-            let grey_scale_val = if self.value_at(&Point{x:x as i32,y:y as i32}) == NO_VALUE { no_data_num+=1; 0 } else { 255 };
-            *pixel = image::Luma([grey_scale_val]);
+            
+            *pixel = match self.value_at(&Point{x:x as i32,y:y as i32}) {
+                Some(h) => image::Luma([255]),
+                None    => { no_data_num+=1; image::Luma([0]) }
+            };
         }
-        println!("{}",no_data_num);
+
+        println!("{} pixels without data.",no_data_num);
         imgbuf
     }
 
@@ -135,11 +144,6 @@ impl Raster {
             } else {
                 acc
             }
-            // if height != None && height > acc {
-            //     height
-            // } else {
-            //     acc
-            // }
         })
     }
 
@@ -151,32 +155,23 @@ impl Raster {
             } else {
                 acc
             }
-            // if pix_height < acc {
-            //     pix_height
-            // } else {
-            //     acc
-            // }
         })
     }
 
     // fit to 0-255 - go from f32 height to u8 for greyscale image
     fn f32_to_u8(&self, height: f32) -> u8 {
-        if self.max_height.is_some() && self.min_height.is_some() {
 
-            let max = self.max_height.unwrap();
-            let min = self.min_height.unwrap();
+        let max = self.max_height.unwrap();
+        let min = self.min_height.unwrap();
 
-            let grey_scale_val = (((height - min) * (255.0 as f32 - 0.0 as f32)) / (max - min)) + 0.0 as f32;
-            grey_scale_val as u8
-        } else {
-            panic!("Called f32_to_u8 without having a max and min!");
-        }
+        let grey_scale_val = (((height - min) * (255.0 as f32 - 0.0 as f32)) / (max - min)) + 0.0 as f32;
+        grey_scale_val as u8
+        
     }
 
     // save raster's pixels as png.  this uses to_img to first get an image buf
     fn save_png(&self, file_path: &str){
         let ref mut fout = File::create(&Path::new(file_path)).unwrap();
-
         let _ = image::ImageLuma8(self.to_img()).save(fout, image::PNG);
     }
 
@@ -190,14 +185,17 @@ impl Raster {
 
 
     fn new(source_raster: [Option<f32>; 66_049], width: u32, x0: f64, y1: f64) -> Raster{
-        Raster{
+        let mut r = Raster{
             pixels: source_raster,
             width: width,
             x0: x0,
             y1: y1,
             max_height: None,
             min_height: None
-        }
+        };
+
+        r.set_min_max();
+        r
     }
 
     // distance formula
@@ -207,12 +205,16 @@ impl Raster {
 
     // slope formula
     fn get_slope(&self, p1: &Point, p2: &Point) -> f64{
-        let mut h1 = self.value_at(p1);
-        let mut h2 = self.value_at(p2);
 
-        if h1 == NO_VALUE { h1 = self.get_height_recur(p1); }
-        if h2 == NO_VALUE { h2 = self.get_height_recur(p2); }
+        let h1 = match self.value_at(p1) {
+            Some(h) => h,
+            None    => self.get_height_recur(p1)
+        };
 
+        let h2 = match self.value_at(p2) {
+            Some(h) => h,
+            None    => self.get_height_recur(p2)
+        };
 
         (h2-h1) as f64/self.get_dist(p1,p2)
     }
@@ -220,23 +222,37 @@ impl Raster {
     fn get_height_recur(&self,p: &Point) -> f32 {
         let mut heights = Vec::new();
 
-        let h1 = self.value_at(&Point{x:p.x+1,y:p.y});
-        let h2 = self.value_at(&Point{x:p.x-1,y:p.y});
-        let h3 = self.value_at(&Point{x:p.x,y:p.y+1});
-        let h4 = self.value_at(&Point{x:p.x,y:p.y-1});
-        let h5 = self.value_at(&Point{x:p.x+1,y:p.y+1});
-        let h6 = self.value_at(&Point{x:p.x-1,y:p.y-1});
-        let h7 = self.value_at(&Point{x:p.x-1,y:p.y+1});
-        let h8 = self.value_at(&Point{x:p.x+1,y:p.y-1});
+        if let Some(h) = self.value_at(&Point{x:p.x+1,y:p.y}) {
+            heights.push(h);
+        }
 
-        if h1 != NO_VALUE { heights.push(h1) }
-        if h2 != NO_VALUE { heights.push(h2) }
-        if h3 != NO_VALUE { heights.push(h3) }
-        if h4 != NO_VALUE { heights.push(h4) }
-        if h5 != NO_VALUE { heights.push(h5) }
-        if h6 != NO_VALUE { heights.push(h6) }
-        if h7 != NO_VALUE { heights.push(h7) }
-        if h8 != NO_VALUE { heights.push(h8) }
+        if let Some(h) = self.value_at(&Point{x:p.x-1,y:p.y}) {
+            heights.push(h);
+        }
+
+        if let Some(h) = self.value_at(&Point{x:p.x,y:p.y+1}) {
+            heights.push(h);
+        }
+
+        if let Some(h) = self.value_at(&Point{x:p.x,y:p.y-1}) {
+            heights.push(h);
+        }
+
+        if let Some(h) = self.value_at(&Point{x:p.x+1,y:p.y+1}) {
+            heights.push(h);
+        }
+
+        if let Some(h) = self.value_at(&Point{x:p.x-1,y:p.y-1}) {
+            heights.push(h);
+        }
+
+        if let Some(h) = self.value_at(&Point{x:p.x-1,y:p.y+1}) {
+            heights.push(h);
+        }
+
+        if let Some(h) = self.value_at(&Point{x:p.x+1,y:p.y-1}) {
+            heights.push(h);
+        }
 
 
         let sum = heights.iter().fold(0.0 as f32,|acc, &pix_height|{
@@ -247,13 +263,9 @@ impl Raster {
     }
 
     // return pixel value @ x,y
-    fn value_at(&self, point: &Point) -> f32 {
+    fn value_at(&self, point: &Point) -> Option<f32> {
         let idx: u32 = (self.width * point.y.abs() as u32) + point.x.abs() as u32;
-        if (self.pixels[idx as usize].is_some()){
-            self.pixels[idx as usize].unwrap()
-        } else {
-            NO_VALUE
-        }
+        self.pixels[idx as usize]          
     }
 
     // generate a test raster
@@ -396,7 +408,6 @@ impl Raster {
     // check a raster
     fn check_raster(&self, circle: &Vec<Point>, origin: &Point) -> ResultRaster {
         let mut result_array = [false; 66_049];
-        let mut i = 0;
         for point in circle {
 
             let line = Raster::draw_line(origin,point);
@@ -475,62 +486,92 @@ fn read_array_from_file(filename: &str) -> [Option<f32>; 66_049] {
     ret_array
 }
 
-fn getTask(){
-    println!("1: Print raster as PNG. 2: Print no zones as PNG.  3: Perform viewshed.\n");
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input)
-        .ok()
-        .expect("Couldn't read line");
-
+fn get_task(raster: &Raster){
+    println!("1: Print raster as PNG. 2: Print no zones as PNG.  3: Perform viewshed.  4: Read more data.\n");
+    
+    let input = get_input();
     let trimmed = input.trim();
 
     if trimmed == "1" {
 
+        println!("Enter Filename.\n");
+        let mut input = get_input();
+
+        raster.save_png(input.trim());
+        println!("PNG saved as {}",input);
+
+        get_task(raster);
+
     } else if trimmed == "2" {
+
+        println!("Enter Filename.\n");
+        let mut input = get_input();
+
+        raster.save_png_no_data(input.trim());
+        println!("PNG saved as {}",input);
+
+        get_task(raster);
 
     } else if trimmed == "3" {
 
+        println!("Enter X and Y coordinates - X,Y.\n");
+        let input = get_input();
+        let coords_vec: Vec<&str> = input.trim().split(',').collect();
+        let raw_x = coords_vec[0].parse::<i32>();
+        let raw_y = coords_vec[1].parse::<i32>();
+        let x = match raw_x {
+            Ok(x) => x,
+            Err(e) => panic!(e)
+        };
+        let y = match raw_y {
+            Ok(y) => y,
+            Err(e) => panic!(e)
+        };
+
+        println!("Enter distance.\n");
+        let raw_dist = get_input();
+        // let raw_dist = raw_dist.trim().parse::<u32>();
+        let dist = match raw_dist.trim().parse::<u32>() {
+            Ok(d)   => d,
+            Err(e)  => panic!(e) 
+        };
+
+        println!("Enter filename to save result.\n");
+        let input2 = get_input();
+        let f_name = input2.trim();
+        let result = raster.do_viewshed(Point{x: x, y: y}, dist);
+        result.save_png(f_name);
+
+        get_task(raster);
+
+    } else if trimmed == "4" {
+        return;
     } else {
         println!("\nInvalid Input.\n");
-        getTask();
+        get_task(raster);
     }
+}
+
+fn get_input() -> String {
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)
+                    .ok()
+                    .expect("Couldn't read line");
+    input
+}
+
+fn get_filename() -> Raster {
+    println!("Enter Filename.\n");
+
+    let mut input = get_input();
+    let raster = Raster::new(read_array_from_file(input.trim()), 257 as u32, rand::random::<f64>(), rand::random::<f64>());
+    
+    raster
 }
 
 
 fn main() {
-
-    use std::io;
-
     loop {
-        println!("Enter Filename.\n");
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)
-            .ok()
-            .expect("Couldn't read line");    
-        let mut raster = Raster::new(read_array_from_file(input.trim()), 257 as u32, rand::random::<f64>(), rand::random::<f64>());
-
-        getTask();
+        get_task(&get_filename());
     }
-
-
-    // println!("{}",NO_VALUE);
-    
-    // let mut raster = Raster::new(read_array_from_file("test.txt"), 257 as u32, rand::random::<f64>(), rand::random::<f64>());
-    // raster.set_min_max();
-
-    // raster.save_png("test1.png");
-
-    // let mut raster: Raster = Raster::rand_raster();
-    // raster.save_png_no_data("data-gaps.png"); 
-
-    // let result = raster.do_viewshed(Point{x:128, y:128}, 125);
-    // result.save_png("result.png");
-
-
-    // result.check_result();
-
-    // random_raster.save_png("sample.png");
-    // let result = random_raster.do_viewshed(Point{x:128, y:128}, 100);
-    // result.save_png("result.png");
-    // result.check_result();
 }
