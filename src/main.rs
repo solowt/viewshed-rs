@@ -24,19 +24,21 @@ struct ResultRaster{
     pixels: [bool; 66_049],
     width: u32,
     x0: f64,
-    y1: f64
+    y1: f64,
+    circle: Vec<Point>
 }
 
 // methods for result raster
 impl ResultRaster {
     
     // create new result raster
-    fn new(result_array: [bool; 66_049], width:u32, x0: f64, y1: f64) -> ResultRaster {
+    fn new(result_array: [bool; 66_049], width:u32, x0: f64, y1: f64, circle: Vec<Point>) -> ResultRaster {
         ResultRaster{
             pixels: result_array,
             width: width,
             x0: x0,
-            y1: y1
+            y1: y1,
+            circle: circle
         }
     }
 
@@ -81,6 +83,18 @@ impl ResultRaster {
         self.pixels[idx as usize]
 
     }
+
+    // fn get_polygons(&self) -> Vec<Vec<Point>>{
+
+    // }
+
+    // fn wmercator_to_raster(&self,wmercator_point: Point) -> Point {
+
+    // }
+
+    // fn raster_to_wmercator(&self, raster_point: &Point) -> Point {
+
+    // }
 
 }
 
@@ -355,7 +369,7 @@ impl Raster {
             if err <= 0 {
                 y += 1;
                 err += 2*y + 1;
-            } else if err > 0 {
+            } else if err > 0 { // else if makes this a "thick" circle.  no diagnal connections
                 x -= 1;
                 err -= 2*x + 1;
             }
@@ -402,15 +416,15 @@ impl Raster {
     // perform viewshed
     fn do_viewshed(&self, origin: Point, radius: u32) -> ResultRaster {
         let circle = Raster::draw_circle(&origin, radius);
-        self.check_raster(&circle, &origin)
+        self.check_raster(circle, &origin)
     }
 
     // check a raster
-    fn check_raster(&self, circle: &Vec<Point>, origin: &Point) -> ResultRaster {
+    fn check_raster(&self, circle: Vec<Point>, origin: &Point) -> ResultRaster {
         let mut result_array = [false; 66_049];
-        for point in circle {
+        for point in &circle {
 
-            let line = Raster::draw_line(origin,point);
+            let line = Raster::draw_line(origin,&point);
             let line_result = self.check_line(&line);
             let iter = line.iter().zip(line_result.iter());
 
@@ -419,7 +433,7 @@ impl Raster {
                 // Raster::set_result(&mut result_vec, self.width, point, *result);
             }
         }
-        ResultRaster::new(result_array, self.width, self.x0, self.y1)
+        ResultRaster::new(result_array, self.width, self.x0, self.y1, circle)
     }
 
     fn point_to_idx(&self, point: &Point) -> usize {
@@ -458,6 +472,14 @@ impl Raster {
             })
             .collect::<Vec<bool>>()
     }
+
+    // fn wmercator_to_raster(&self,wmercator_point: Point) -> Point {
+
+    // }
+
+    // fn raster_to_wmercator(&self, raster_point: &Point) -> Point {
+
+    // }
 }
 
 fn read_array_from_file(filename: &str) -> [Option<f32>; 66_049] {
