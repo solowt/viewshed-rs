@@ -9,8 +9,8 @@ use std::path::Path;
 pub struct ResultRaster{
     pub pixels: [bool; 66_049],
     pub width: u32,
-    pub x0: f64,
-    pub y1: f64,
+    pub x0: f32,
+    pub y1: f32,
     pub circle: Circle::Circle
 }
 
@@ -18,7 +18,7 @@ pub struct ResultRaster{
 impl ResultRaster {
     
     // create new result raster
-    pub fn new(result_array: [bool; 66_049], width:u32, x0: f64, y1: f64, circle: Circle::Circle) -> ResultRaster {
+    pub fn new(result_array: [bool; 66_049], width:u32, x0: f32, y1: f32, circle: Circle::Circle) -> ResultRaster {
         ResultRaster{
             pixels: result_array,
             width: width,

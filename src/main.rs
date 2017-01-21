@@ -47,7 +47,7 @@ fn get_task(raster: &Raster::Raster){
     if trimmed == "1" {
 
         println!("Enter Filename.\n");
-        let mut input = get_input();
+        let input = get_input();
 
         raster.save_png(input.trim());
         println!("PNG saved as {}",input);
@@ -57,7 +57,7 @@ fn get_task(raster: &Raster::Raster){
     } else if trimmed == "2" {
 
         println!("Enter Filename.\n");
-        let mut input = get_input();
+        let input = get_input();
 
         raster.save_png_no_data(input.trim());
         println!("PNG saved as {}",input);
@@ -91,7 +91,7 @@ fn get_task(raster: &Raster::Raster){
         println!("Enter filename to save result.\n");
         let input2 = get_input();
         let f_name = input2.trim();
-        let result = raster.do_viewshed(Point::Point{x: x, y: y}, dist);
+        let result = raster.do_viewshed(&Point::Point{x: x, y: y}, dist);
         result.save_png(f_name);
 
         get_task(raster);
@@ -115,8 +115,8 @@ fn get_input() -> String {
 fn get_filename() -> Raster::Raster {
     println!("Enter Filename.\n");
 
-    let mut input = get_input();
-    let raster = Raster::Raster::new(read_array_from_file(input.trim()), 257 as u32, rand::random::<f64>(), rand::random::<f64>());
+    let input = get_input();
+    let raster = Raster::Raster::new(read_array_from_file(input.trim()), 257 as u32, rand::random::<f32>(), rand::random::<f32>());
     
     raster
 }

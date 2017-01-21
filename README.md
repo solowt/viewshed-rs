@@ -13,8 +13,8 @@
 
 ## TO DO:
 
-*  Separate code into modules
-*  Make circle struct with rad, center, pixels
+*  Fix get_height_recurr in raster.rs.
+*  Add get_max_slope and to_slope_raster.
 *  Handle circle being drawn off raster.
 *  Should we "poll" viewshed results?  IE, some pixels are tested more than once.
 *  Find best tile in browser.  where is it?  Tilemap?  TileClass? Pool?  Check for elevation layer on change.  Search API.  Can also make another request if needed.  Where are requests being made from the API?
