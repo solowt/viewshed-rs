@@ -181,7 +181,7 @@ impl Raster {
         };
 
         if h1.is_some() && h2.is_some() {
-            Some(h2.unwrap()-h1.unwrap() as f32 / self.get_pix_dist(idx, target_idx))
+            Some(h2.unwrap()-h1.unwrap() as f32)
         } else {
             None
         }
@@ -479,14 +479,30 @@ impl Raster {
     fn get_max_slope_idx(&self, idx: usize) -> Option<f32> {
         let mut slopes_arr: [Option<f32>; 8] = [None; 8];
         
-        slopes_arr[0] = self.get_slope_from_idx(idx, idx + 1);
-        slopes_arr[1] = self.get_slope_from_idx(idx, idx - 1);
-        slopes_arr[2] = self.get_slope_from_idx(idx, idx + self.width as usize);
-        slopes_arr[3] = self.get_slope_from_idx(idx, idx - self.width as usize);
-        slopes_arr[4] = self.get_slope_from_idx(idx, idx + self.width as usize + 1);
-        slopes_arr[5] = self.get_slope_from_idx(idx, idx + self.width as usize - 1);
-        slopes_arr[6] = self.get_slope_from_idx(idx, idx - self.width as usize + 1);
-        slopes_arr[7] = self.get_slope_from_idx(idx, idx - self.width as usize - 1);
+        if idx % self.width as usize != 0 {
+            slopes_arr[1] = self.get_slope_from_idx(idx, idx - 1);
+            if idx < 66_049 - self.width as usize {
+                slopes_arr[5] = self.get_slope_from_idx(idx, idx + self.width as usize - 1);
+            }
+            if idx > self.width as usize {
+                slopes_arr[7] = self.get_slope_from_idx(idx, idx - self.width as usize - 1);
+            }
+        }
+        if (idx + 1) % self.width as usize != 0 {
+            slopes_arr[0] = self.get_slope_from_idx(idx, idx + 1);
+            if idx < 66_049 - self.width as usize {
+                slopes_arr[4] = self.get_slope_from_idx(idx, idx + self.width as usize + 1);
+            }
+            if idx > self.width as usize {
+                slopes_arr[6] = self.get_slope_from_idx(idx, idx + 1 - self.width as usize);
+            }
+        }
+        if idx > self.width as usize {
+            slopes_arr[3] = self.get_slope_from_idx(idx, idx - self.width as usize);
+        }
+        if idx < 66_049 - self.width as usize {
+            slopes_arr[2] = self.get_slope_from_idx(idx, idx + self.width as usize);
+        }
 
         slopes_arr.iter().fold(Some(f32::MIN), |max_slope, &slope| {
             match slope {
@@ -508,7 +524,7 @@ impl Raster {
         ret_array
     }
 
-    pub fn print_slope_raster(&self, file_name: &str) {
+    pub fn print_slope_png(&self, file_name: &str) {
         let slope_raster = self.to_slope_raster();
         let max_slope = self.max_in_raster(&slope_raster);
         let min_slope = self.min_in_raster(&slope_raster);
@@ -516,7 +532,7 @@ impl Raster {
         for (idx, slope) in slope_raster.iter().enumerate() {
              buf[idx] = ((((slope - min_slope) * (255.0 as f32 - 0.0 as f32)) / (max_slope - min_slope)) + 0.0 as f32) as u8;
         } 
-        image::save_buffer(&Path::new(file_name), &buf, self.width, self.pixels.len() as u32/self.width, image::Luma(u8)).unwrap();
+        image::save_buffer(&Path::new(file_name), &buf, self.width, self.pixels.len() as u32/self.width, image::Gray(8)).unwrap();
 
     }
 }

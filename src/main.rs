@@ -39,7 +39,7 @@ fn read_array_from_file(filename: &str) -> [Option<f32>; 66_049] {
 }
 
 fn get_task(raster: &Raster::Raster){
-    println!("1: Print raster as PNG. 2: Print no zones as PNG.  3: Perform viewshed.  4: Read more data.\n");
+    println!("1: Print raster as PNG. 2: Print no zones as PNG.  3: Perform viewshed.  4: Print slope raster as PNG.  5: Read more data.\n");
     
     let input = get_input();
     let trimmed = input.trim();
@@ -96,7 +96,17 @@ fn get_task(raster: &Raster::Raster){
 
         get_task(raster);
 
-    } else if trimmed == "4" {
+    } else if trimmed == "4"{
+
+        println!("Enter Filename.\n");
+        let input = get_input();
+
+        raster.print_slope_png(input.trim());
+        println!("PNG saved as {}",input);
+
+        get_task(raster);
+    
+    }else if trimmed == "5" {
         return;
     } else {
         println!("\nInvalid Input.\n");
