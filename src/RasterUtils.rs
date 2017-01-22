@@ -3,13 +3,13 @@ use Circle;
 use std::f32;
 use std::cmp::*;
 
-pub fn bilinear_interp(raster: [Option<f32>; 66_049], idx: usize, width: u32) -> f32 {
-	bilinear_interp_point(raster, idx_to_point(width,idx), width)
-}
+// pub fn bilinear_interp(raster: [Option<f32>; 66_049], idx: usize, width: u32) -> f32 {
+// 	bilinear_interp_point(raster, idx_to_point(width,idx), width)
+// }
 
-pub fn bilinear_interp_point(raster: [Option<f32>; 66_049], point: Point::Point, width: u32) -> f32 {
-	3.3
-}
+// pub fn bilinear_interp_point(raster: [Option<f32>; 66_049], point: Point::Point, width: u32) -> f32 {
+// 	3.3
+// }
 
 pub fn idx_to_point(width: u32, idx: usize) -> Point::Point {
 	let x = idx % width as usize;
@@ -171,8 +171,6 @@ pub fn draw_circle(mid_point: &Point::Point, radius: u32) -> Circle::Circle{
     });
 
     ret_vec.dedup();
-    // println!("{:?}, len: {}",ret_vec, ret_vec.len());
-    // println!("{:?}",ret_vec.last().unwrap());
     Circle::Circle{
         edge: ret_vec,
         center: *mid_point,
@@ -197,7 +195,7 @@ fn get_neighbors(idx: usize, width: u32, size: usize) -> [Option<usize>; 8] {
 
 	if idx % width as usize != 0 {
         ret_arr[0] = Some(idx - 1);
-        if idx < 66_049 - width as usize {
+        if idx < size - width as usize {
             ret_arr[1] = Some(idx + width as usize - 1);
         }
         if idx > width as usize {
@@ -206,7 +204,7 @@ fn get_neighbors(idx: usize, width: u32, size: usize) -> [Option<usize>; 8] {
     }
     if (idx + 1) % width as usize != 0 {
         ret_arr[3] = Some(idx + 1);
-        if idx < 66_049 - width as usize {
+        if idx < size - width as usize {
             ret_arr[4] = Some(idx + width as usize + 1);
         }
         if idx > width as usize {
@@ -216,7 +214,7 @@ fn get_neighbors(idx: usize, width: u32, size: usize) -> [Option<usize>; 8] {
     if idx >= width as usize {
         ret_arr[6] = Some(idx - width as usize);
     }
-    if idx < 66_049 - width as usize {
+    if idx < size - width as usize {
         ret_arr[7] = Some(idx + width as usize);
     }
 

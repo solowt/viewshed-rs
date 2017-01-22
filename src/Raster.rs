@@ -59,7 +59,7 @@ impl Raster {
         for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
             
             *pixel = match self.value_at(&Point::Point{x:x as i32,y:y as i32}) {
-                Some(h) => image::Luma([255]),
+                Some(_) => image::Luma([255]),
                 None    => { no_data_num+=1; image::Luma([0]) }
             };
         }
@@ -220,16 +220,21 @@ impl Raster {
             let iter = line.iter().zip(line_result.iter());
 
             for (point, result) in iter {
-                result_array[self.point_to_idx(point)] = *result;
-                // Raster::set_result(&mut result_vec, self.width, point, *result);
+                if let Some(idx) = self.point_to_idx(point) {
+                    result_array[idx] = *result
+                }
             }
         }
         ResultRaster::ResultRaster::new(result_array, self.width, self.x0, self.y1, circle)
     }
 
-    pub fn point_to_idx(&self, point: &Point::Point) -> usize {
-        let idx: u32 = (self.width * point.y.abs() as u32) + point.x.abs() as u32;
-        idx as usize
+    pub fn point_to_idx(&self, point: &Point::Point) -> Option<usize> {
+        if point.x < 0 || point.y < 0 || point.x > self.width as i32 - 1 || point.y > self.pixels.len() as i32 -1 {
+            None
+        } else {
+            let idx: u32 = (self.width * point.y.abs() as u32) + point.x.abs() as u32;
+            Some(idx as usize)
+        }
     }
 
     // check a line of points for visibility from the first point
@@ -272,6 +277,10 @@ impl Raster {
             .collect::<Vec<bool>>()
     }
 
+    // pub fn interp_raster(&mut self) {
+
+    // }
+
     // pub fn wmercator_to_raster(&self,wmercator_point: Point) -> Point {
 
     // }
@@ -291,9 +300,10 @@ impl Raster {
 
     pub fn print_slope_png(&self, file_name: &str) {
         let slope_raster = self.to_slope_raster();
+        
         let max_slope = RasterUtils::max_in_raster_opt(&slope_raster);
         let min_slope = RasterUtils::min_in_raster_opt(&slope_raster);
-        println!("{},{}",min_slope,max_slope);
+
         let mut buf: [u8; 66_049] = [0; 66_049];
         for (idx, &slope) in slope_raster.iter().enumerate() {
              buf[idx] = match slope {

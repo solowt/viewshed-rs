@@ -7,9 +7,6 @@ mod Point;
 mod Circle;
 mod RasterUtils;
 
-use std::fs::File;
-use std::path::Path;
-
 static NO_VALUE: f32 = std::f32::MAX;
 static LEN: usize = 66_049;
 
@@ -17,7 +14,6 @@ fn read_array_from_file(filename: &str) -> [Option<f32>; 66_049] {
     use std::io::prelude::*;
     use std::io::BufReader;
     use std::fs::File;
-    use std::path::Path;
 
 
     let file = File::open(filename).expect("no such file");
