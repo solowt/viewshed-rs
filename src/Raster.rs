@@ -5,14 +5,13 @@ use std::f32;
 use Circle;
 use Point;
 use ResultRaster;
+use RasterUtils;
 use std::fs::File;
 use std::path::Path;
-use std::cmp::*;
-
 
 // struct for a raster: this raster's pixels contain elevation data
 pub struct Raster{
-    pub pixels: [Option<f32>; 66_049], // height array
+    pub pixels: Box<[Option<f32>; 66_049]>, // height array
     pub width: u32, // width of raster
     pub x0: f32, // related to extent?  maybe corner in mercator
     pub y1: f32,  // see above
@@ -22,6 +21,20 @@ pub struct Raster{
 
 // add methods to raster
 impl Raster {
+
+    pub fn new(source_raster: [Option<f32>; 66_049], width: u32, x0: f32, y1: f32) -> Raster{
+        let mut r = Raster{
+            pixels: Box::new(source_raster),
+            width: width,
+            x0: x0,
+            y1: y1,
+            max_height: None,
+            min_height: None
+        };
+
+        r.set_min_max();
+        r
+    }
 
     // convert raster's pixel to image buffer
     pub fn to_img(&self) -> image::ImageBuffer<image::Luma<u8>, Vec<u8>> {
@@ -63,45 +76,12 @@ impl Raster {
 
     // find max pixel in raster, returns value
     pub fn max(&self) -> f32 {
-        // self.pixels.max()
-        self.pixels.iter().fold(f32::MIN, |acc, &pix_height| {
-            if pix_height.is_some() && pix_height.unwrap() > acc {
-                pix_height.unwrap()
-            } else {
-                acc
-            }
-        })
-    }
-
-    fn max_in_raster(&self,arr: &[f32; 66_049]) -> f32 {
-        arr.iter().fold(f32::MIN, |acc, &pix_height| {
-            if pix_height > acc {
-                pix_height
-            } else {
-                acc
-            }
-        })
-    }
-
-    fn min_in_raster(&self,arr: &[f32; 66_049]) -> f32 {
-        arr.iter().fold(f32::MAX, |acc, &pix_height| {
-            if pix_height < acc {
-                pix_height
-            } else {
-                acc
-            }
-        })
+        RasterUtils::max_in_raster_opt(&self.pixels)
     }
 
     // find min pixel in raster, returns value
     pub fn min(&self) -> f32 {
-        self.pixels.iter().fold(f32::MAX, |acc, &pix_height| {
-            if pix_height.is_some() && pix_height.unwrap() < acc {
-                pix_height.unwrap()
-            } else {
-                acc
-            }
-        })
+        RasterUtils::min_in_raster_opt(&self.pixels)
     }
 
     // fit to 0-255 - go from f32 height to u8 for greyscale image
@@ -110,8 +90,7 @@ impl Raster {
         let max = self.max_height.unwrap();
         let min = self.min_height.unwrap();
 
-        let grey_scale_val = (((height - min) * (255.0 as f32 - 0.0 as f32)) / (max - min)) + 0.0 as f32;
-        grey_scale_val as u8
+        RasterUtils::f32_to_u8(min,max,height)
         
     }
 
@@ -130,19 +109,6 @@ impl Raster {
 
 
 
-    pub fn new(source_raster: [Option<f32>; 66_049], width: u32, x0: f32, y1: f32) -> Raster{
-        let mut r = Raster{
-            pixels: source_raster,
-            width: width,
-            x0: x0,
-            y1: y1,
-            max_height: None,
-            min_height: None
-        };
-
-        r.set_min_max();
-        r
-    }
 
     // distance formula
     pub fn get_dist(&self, p1: &Point::Point, p2: &Point::Point) -> f32 {
@@ -152,36 +118,21 @@ impl Raster {
     // slope formula
     pub fn get_slope(&self, p1: &Point::Point, p2: &Point::Point) -> Option<f32> {
 
-        let h1 = match self.value_at(p1) {
-            Some(h) => Some(h),
-            None    => self.get_height_recur(p1)
-        };
+        // let h1 = match self.value_at(p1) {
+        //     Some(h) => Some(h),
+        //     None    => self.get_height_recur(p1)
+        // };
 
-        let h2 = match self.value_at(p2) {
-            Some(h) => Some(h),
-            None    => self.get_height_recur(p2)
-        };
+        // let h2 = match self.value_at(p2) {
+        //     Some(h) => Some(h),
+        //     None    => self.get_height_recur(p2)
+        // };
+
+        let h1 = self.value_at(p1);
+        let h2 = self.value_at(p2);
 
         if h1.is_some() && h2.is_some() {
             Some(h2.unwrap()-h1.unwrap() as f32/self.get_dist(p1,p2))
-        } else {
-            None
-        }
-    }
-
-    fn get_slope_from_idx(&self, idx: usize, target_idx: usize) -> Option<f32> {
-        let h1 = match self.pixels[idx] {
-            Some(h) => Some(h),
-            None    => None
-        };
-
-        let h2 = match self.pixels[target_idx] {
-            Some(h) => Some(h),
-            None    => None
-        };
-
-        if h1.is_some() && h2.is_some() {
-            Some(h2.unwrap()-h1.unwrap() as f32)
         } else {
             None
         }
@@ -253,134 +204,9 @@ impl Raster {
         [Some(5.5); 66_049]
     }
 
-    // bresenham's line algorithm http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
-    // give two points draw a line between them.  return vector of points as the line
-    pub fn draw_line(p1: &Point::Point, p2: &Point::Point) -> Vec<Point::Point>{
-
-        let mut ret_vec = Vec::new();
-        let delta_x: i32 = p2.x - p1.x;
-        let delta_y: i32 = p2.y - p1.y;
-
-        let dx1: i32 = if delta_x < 0 { -1 } else { 1 };
-        let dy1: i32 = if delta_y < 0 { -1 } else { 1 };
-        let mut dx2: i32 = if delta_x < 0 { -1 } else { 1 };
-        let mut dy2: i32 = 0;
-
-        let mut longest = delta_x.abs();
-        let mut shortest = delta_y.abs();
-
-        if !(longest>shortest){
-            longest = delta_y.abs();
-            shortest = delta_x.abs();
-            if delta_y < 0 { dy2 = -1 } else { dy2 = 1 }
-            dx2 = 0;
-        }
-
-        let mut numerator = longest >> 1;
-
-        let mut curr_x = p1.x;
-        let mut curr_y = p1.y;
-
-        for iter in 0..longest+1 {
-            ret_vec.push(Point::Point{ x:curr_x, y: curr_y });
-            numerator += shortest;
-            if !(numerator < longest){
-                numerator -= longest;
-                curr_x += dx1;
-                curr_y += dy1;
-            } else {
-                curr_x += dx2;
-                curr_y += dy2;
-            }
-        }
-        ret_vec
-    }
-
-    pub fn draw_circle(mid_point: &Point::Point, radius: u32) -> Circle::Circle{
-
-        let mut ret_vec = Vec::new();
-
-        let mut x: i32 = radius as i32;
-        let mut y: i32 = 0;
-        let mut err = 0;
-
-        while x >= y {
-
-            ret_vec.push(Point::Point{x: mid_point.x + x, y: mid_point.y + y});
-            ret_vec.push(Point::Point{x: mid_point.x + x, y: mid_point.y - y});
-
-            ret_vec.push(Point::Point{x: mid_point.x + y, y: mid_point.y + x});
-            ret_vec.push(Point::Point{x: mid_point.x - y, y: mid_point.y + x});
-
-            ret_vec.push(Point::Point{x: mid_point.x - x, y: mid_point.y + y});
-            ret_vec.push(Point::Point{x: mid_point.x - x, y: mid_point.y - y});
-
-            ret_vec.push(Point::Point{x: mid_point.x - y, y: mid_point.y - x});
-            ret_vec.push(Point::Point{x: mid_point.x + y, y: mid_point.y - x});
-
-            if err <= 0 {
-                y += 1;
-                err += 2*y + 1;
-            } else if err > 0 { // else if makes this a "thick" circle.  no diagnal connections
-                x -= 1;
-                err -= 2*x + 1;
-            }
-        }
-
-        ret_vec.sort_by(|a,b|{
-            // if a.x == b.x && a.y == b.y {
-            //     Ordering::Equal
-            // } else if a.x >= b.x {
-            //     Ordering::Greater
-            // } else {
-            //     Ordering::Less
-            // }
-            if a.x == b.x && a.y == b.y {
-                Ordering::Equal
-            } else if a.y >= 0 {
-                if b.y < 0 {
-                    Ordering::Less
-                } else {
-                    if a.x != b.x {
-                        b.x.cmp(&a.x)
-                    } else {
-                        if a.x > 0 {
-                            a.y.cmp(&b.y)
-                        } else {
-                            b.y.cmp(&a.y)
-                        }
-                    }
-                }
-            } else {
-                if b.y > 0 {
-                    Ordering::Greater
-                } else {
-                    if a.x != b.x {
-                        a.x.cmp(&b.x)
-                    } else {
-                        if a.x < 0 {
-                            b.y.cmp(&a.y)
-                        } else {
-                            a.y.cmp(&b.y)
-                        }
-                    }
-                }
-            }
-        });
-
-        ret_vec.dedup();
-        // println!("{:?}, len: {}",ret_vec, ret_vec.len());
-        // println!("{:?}",ret_vec.last().unwrap());
-        Circle::Circle{
-            edge: ret_vec,
-            center: *mid_point,
-            radius: radius
-        }
-    }
-
     // perform viewshed
     pub fn do_viewshed(&self, origin: &Point::Point, radius: u32) -> ResultRaster::ResultRaster {
-        let circle = Raster::draw_circle(origin, radius);
+        let circle = RasterUtils::draw_circle(origin, radius);
         self.check_raster(circle, origin)
     }
 
@@ -389,7 +215,7 @@ impl Raster {
         let mut result_array = [false; 66_049];
         for point in &circle.edge {
 
-            let line = Raster::draw_line(origin,&point);
+            let line = RasterUtils::draw_line(origin,&point);
             let line_result = self.check_line(&line);
             let iter = line.iter().zip(line_result.iter());
 
@@ -454,83 +280,26 @@ impl Raster {
 
     // }
 
-    // get the slope for a pixel: calculate slope between pixel and 8 neighbors, return greatest.
-    fn get_max_slope(&self, p: Point::Point) -> Option<f32> {
-        let mut slopes_arr: [Option<f32>; 8] = [None; 8];
-        
-        slopes_arr[0] = self.get_slope(&p,&Point::Point{x: p.x+1, y: p.y});
-        slopes_arr[1] = self.get_slope(&p,&Point::Point{x: p.x-1, y: p.y});
-        slopes_arr[2] = self.get_slope(&p,&Point::Point{x: p.x, y: p.y+1});
-        slopes_arr[3] = self.get_slope(&p,&Point::Point{x: p.x, y: p.y-1});
-        slopes_arr[4] = self.get_slope(&p,&Point::Point{x: p.x+1, y: p.y+1});
-        slopes_arr[5] = self.get_slope(&p,&Point::Point{x: p.x-1, y: p.y-1});
-        slopes_arr[6] = self.get_slope(&p,&Point::Point{x: p.x-1, y: p.y+1});
-        slopes_arr[7] = self.get_slope(&p,&Point::Point{x: p.x+1, y: p.y-1});
-
-        slopes_arr.iter().fold(Some(f32::MIN), |max_slope, &slope| {
-            match slope {
-                Some(x) => { if x > max_slope.unwrap() { Some(x) } else { max_slope } },
-                None    => max_slope
-            }
-        })
-
-    }
-
-    fn get_max_slope_idx(&self, idx: usize) -> Option<f32> {
-        let mut slopes_arr: [Option<f32>; 8] = [None; 8];
-        
-        if idx % self.width as usize != 0 {
-            slopes_arr[1] = self.get_slope_from_idx(idx, idx - 1);
-            if idx < 66_049 - self.width as usize {
-                slopes_arr[5] = self.get_slope_from_idx(idx, idx + self.width as usize - 1);
-            }
-            if idx > self.width as usize {
-                slopes_arr[7] = self.get_slope_from_idx(idx, idx - self.width as usize - 1);
-            }
-        }
-        if (idx + 1) % self.width as usize != 0 {
-            slopes_arr[0] = self.get_slope_from_idx(idx, idx + 1);
-            if idx < 66_049 - self.width as usize {
-                slopes_arr[4] = self.get_slope_from_idx(idx, idx + self.width as usize + 1);
-            }
-            if idx > self.width as usize {
-                slopes_arr[6] = self.get_slope_from_idx(idx, idx + 1 - self.width as usize);
-            }
-        }
-        if idx > self.width as usize {
-            slopes_arr[3] = self.get_slope_from_idx(idx, idx - self.width as usize);
-        }
-        if idx < 66_049 - self.width as usize {
-            slopes_arr[2] = self.get_slope_from_idx(idx, idx + self.width as usize);
-        }
-
-        slopes_arr.iter().fold(Some(f32::MIN), |max_slope, &slope| {
-            match slope {
-                Some(x) => { if x > max_slope.unwrap() { Some(x) } else { max_slope } },
-                None    => max_slope
-            }
-        })
-    }
-
     //return an array that has slope value for each pixel 
-    pub fn to_slope_raster(&self) -> [f32; 66_049] {
-        let mut ret_array: [f32; 66_049] = [0.0; 66_049];
+    pub fn to_slope_raster(&self) -> [Option<f32>; 66_049] {
+        let mut ret_array: [Option<f32>; 66_049] = [None; 66_049];
         for idx in 0..66_048 {
-            ret_array[idx] = match self.get_max_slope_idx(idx) {
-                Some(slope) => slope,
-                None        => 0.0
-            }
+            ret_array[idx] = RasterUtils::get_max_slope_idx(&self.pixels, self.width, idx);
         }
         ret_array
     }
 
     pub fn print_slope_png(&self, file_name: &str) {
         let slope_raster = self.to_slope_raster();
-        let max_slope = self.max_in_raster(&slope_raster);
-        let min_slope = self.min_in_raster(&slope_raster);
+        let max_slope = RasterUtils::max_in_raster_opt(&slope_raster);
+        let min_slope = RasterUtils::min_in_raster_opt(&slope_raster);
+        println!("{},{}",min_slope,max_slope);
         let mut buf: [u8; 66_049] = [0; 66_049];
-        for (idx, slope) in slope_raster.iter().enumerate() {
-             buf[idx] = ((((slope - min_slope) * (255.0 as f32 - 0.0 as f32)) / (max_slope - min_slope)) + 0.0 as f32) as u8;
+        for (idx, &slope) in slope_raster.iter().enumerate() {
+             buf[idx] = match slope {
+                Some(slope) => { RasterUtils::f32_to_u8(min_slope, max_slope, slope) },
+                None        => { RasterUtils::f32_to_u8(min_slope, max_slope, 0.0) }
+            }
         } 
         image::save_buffer(&Path::new(file_name), &buf, self.width, self.pixels.len() as u32/self.width, image::Gray(8)).unwrap();
 

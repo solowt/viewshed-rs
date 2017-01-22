@@ -5,6 +5,7 @@ mod Raster;
 mod ResultRaster;
 mod Point;
 mod Circle;
+mod RasterUtils;
 
 use std::fs::File;
 use std::path::Path;

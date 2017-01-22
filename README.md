@@ -13,7 +13,7 @@
 
 ## TO DO:
 
-*  Review get_height_recurr in raster.rs - do we need it?  Is it causing issues?  Instead just take the true/false from last pixel calculated.
+*  Write bilinear_interp function in utils.
 *  Is circle being drawn off raster?  Are lines being drawn off raster?  Fix if so.
 *  Should we "poll" viewshed results?  IE, many pixels are tested more than once.  Currently last line to hit a pixel gets priority.  If we choose to poll, how do we store votes?  Hashmap?  Parallel arrays?
 *  Find best tile in browser.  where is it?  Tilemap?  TileClass? Pool?  Check for elevation layer on change.  Search API.  Can also make another request if needed.  Where are requests being made from the API?  Note: check getElevation() in Tileworker (wrong name), this runs through children I believe.
