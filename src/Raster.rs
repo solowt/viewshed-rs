@@ -11,7 +11,7 @@ use std::path::Path;
 
 // struct for a raster: this raster's pixels contain elevation data
 pub struct Raster{
-    pub pixels: Box<[Option<f32>; 66_049]>, // height array
+    pub pixels: Vec<Option<f32>>, // height array
     pub width: u32, // width of raster
     pub x0: f32, // related to extent?  maybe corner in mercator
     pub y1: f32,  // see above
@@ -22,9 +22,9 @@ pub struct Raster{
 // add methods to raster
 impl Raster {
 
-    pub fn new(source_raster: [Option<f32>; 66_049], width: u32, x0: f32, y1: f32) -> Raster{
+    pub fn new(source_raster: Vec<Option<f32>>, width: u32, x0: f32, y1: f32) -> Raster{
         let mut r = Raster{
-            pixels: Box::new(source_raster),
+            pixels: source_raster,
             width: width,
             x0: x0,
             y1: y1,
@@ -191,7 +191,7 @@ impl Raster {
     }
 
     // do the generation here: currently the raster is flat.
-    pub fn rand_raster_source() -> [Option<f32>;66_049]{
+    pub fn rand_raster_source() -> Vec<Option<f32>>{
         // let mut last_height: f32 = 0.0;
         // let mut arr: [Option<f32>; 66_049] = [Some(5.5); 66_049];
         // for i in 0..arr.len() {
@@ -201,7 +201,7 @@ impl Raster {
             // last_height = curr_height;
         // }
         // arr
-        [Some(5.5); 66_049]
+        vec![Some(5.5); 66_049]
     }
 
     // perform viewshed
@@ -290,12 +290,13 @@ impl Raster {
     // }
 
     //return an array that has slope value for each pixel 
-    pub fn to_slope_raster(&self) -> [Option<f32>; 66_049] {
-        let mut ret_array: [Option<f32>; 66_049] = [None; 66_049];
-        for idx in 0..66_048 {
-            ret_array[idx] = RasterUtils::get_max_slope_idx(&self.pixels, self.width, idx);
-        }
-        ret_array
+    pub fn to_slope_raster(&self) -> Vec<Option<f32>> {
+        self.pixels.iter()
+                    .enumerate()
+                    .map(|enumerate_val|{
+                        RasterUtils::get_max_slope_idx(&self.pixels, self.width, enumerate_val.0)
+                    })
+                    .collect::<Vec<Option<f32>>>()
     }
 
     pub fn print_slope_png(&self, file_name: &str) {

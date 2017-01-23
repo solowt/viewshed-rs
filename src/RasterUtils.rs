@@ -17,8 +17,8 @@ pub fn idx_to_point(width: u32, idx: usize) -> Point::Point {
 	Point::Point{x: x as i32, y: y as i32}
 }
 
-pub fn min_in_raster(arr: &[f32; 66_049]) -> f32 {
-	arr.iter().fold(f32::MAX, |acc, &pix_height| {
+pub fn min_in_raster(raster: &[f32]) -> f32 {
+	raster.iter().fold(f32::MAX, |acc, &pix_height| {
             if pix_height < acc {
                 pix_height
             } else {
@@ -27,8 +27,8 @@ pub fn min_in_raster(arr: &[f32; 66_049]) -> f32 {
         })
 }
 
-pub fn max_in_raster(arr: &[f32; 66_049]) -> f32 {
-	arr.iter().fold(f32::MIN, |acc, &pix_height| {
+pub fn max_in_raster(raster: &[f32]) -> f32 {
+	raster.iter().fold(f32::MIN, |acc, &pix_height| {
             if pix_height > acc {
                 pix_height
             } else {
@@ -37,8 +37,8 @@ pub fn max_in_raster(arr: &[f32; 66_049]) -> f32 {
         })
 }
 
-pub fn min_in_raster_opt(arr: &[Option<f32>; 66_049]) -> f32 {
-	arr.iter().fold(f32::MAX, |acc, &pix_height| {
+pub fn min_in_raster_opt(raster: &[Option<f32>]) -> f32 {
+	raster.iter().fold(f32::MAX, |acc, &pix_height| {
 		match pix_height {
 			Some(x)	=> if x < acc { x } else { acc },
 			None	=> acc
@@ -46,8 +46,8 @@ pub fn min_in_raster_opt(arr: &[Option<f32>; 66_049]) -> f32 {
     })
 }
 
-pub fn max_in_raster_opt(arr: &[Option<f32>; 66_049]) -> f32 {
-	arr.iter().fold(f32::MIN, |acc, &pix_height| {
+pub fn max_in_raster_opt(raster: &[Option<f32>]) -> f32 {
+	raster.iter().fold(f32::MIN, |acc, &pix_height| {
 		match pix_height {
 			Some(x)	=> if x > acc { x } else { acc },
 			None	=> acc
@@ -201,7 +201,7 @@ fn bordering_on_bool(raster: &[bool; 66_049], idx: usize, width: u32, search_val
 
 // aggregate_valid_pix(raster)
 
-fn get_slope_from_idx(pixels: &[Option<f32>; 66_049], idx: usize, target_idx: usize) -> Option<f32> {
+fn get_slope_from_idx(pixels: &[Option<f32>], idx: usize, target_idx: usize) -> Option<f32> {
     
     let h1 = pixels[idx];
     let h2 = pixels[target_idx];
@@ -263,7 +263,7 @@ fn get_neighbors(idx: usize, width: u32, size: usize) -> [Option<usize>; 8] {
     ret_arr
 }
 
-pub fn get_max_slope_idx(pixels: &[Option<f32>; 66_049], width: u32, idx: usize) -> Option<f32> {
+pub fn get_max_slope_idx(pixels: &[Option<f32>], width: u32, idx: usize) -> Option<f32> {
 	get_neighbors(idx, width, pixels.len())
 		.iter()
 	 	.take_while(|idx_opt| idx_opt.is_some())

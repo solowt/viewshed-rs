@@ -10,7 +10,7 @@ mod RasterUtils;
 static NO_VALUE: f32 = std::f32::MAX;
 static LEN: usize = 66_049;
 
-fn read_array_from_file(filename: &str) -> [Option<f32>; 66_049] {
+fn read_vec_from_file(filename: &str) -> Vec<Option<f32>> {
     use std::io::prelude::*;
     use std::io::BufReader;
     use std::fs::File;
@@ -19,20 +19,20 @@ fn read_array_from_file(filename: &str) -> [Option<f32>; 66_049] {
     let file = File::open(filename).expect("no such file");
     let buf = BufReader::new(file);
 
-    let mut ret_array: [Option<f32>; 66_049] = [None; 66_049];
+    let mut ret_vec: Vec<Option<f32>> = Vec::with_capacity(66_049);
 
-    for (idx, val) in buf.split(b',').enumerate() {
+    for val in buf.split(b',') {
         let byte_vec = &val.unwrap();
 
         let height = std::str::from_utf8(byte_vec).unwrap().parse::<f32>().unwrap();
         if height == NO_VALUE {
-            ret_array[idx] = None;
+            ret_vec.push(None)
         } else {
-           ret_array[idx] = Some(height);    
+           ret_vec.push(Some(height));    
         }
     }
 
-    ret_array
+    ret_vec
 }
 
 fn get_task(raster: &Raster::Raster){
@@ -123,7 +123,7 @@ fn get_filename() -> Raster::Raster {
     println!("Enter Filename.\n");
 
     let input = get_input();
-    let raster = Raster::Raster::new(read_array_from_file(input.trim()), 257 as u32, rand::random::<f32>(), rand::random::<f32>());
+    let raster = Raster::Raster::new(read_vec_from_file(input.trim()), 257 as u32, rand::random::<f32>(), rand::random::<f32>());
     
     raster
 }
