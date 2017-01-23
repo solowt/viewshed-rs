@@ -9,6 +9,8 @@ use RasterUtils;
 use std::fs::File;
 use std::path::Path;
 
+static LEN: usize = 66_049;
+
 // struct for a raster: this raster's pixels contain elevation data
 pub struct Raster{
     pub pixels: Vec<Option<f32>>, // height array
@@ -212,7 +214,7 @@ impl Raster {
 
     // check a raster
     pub fn check_raster(&self, circle: Circle::Circle, origin: &Point::Point) -> ResultRaster::ResultRaster {
-        let mut result_array = [false; 66_049];
+        let mut result_vec = vec![None; LEN];
         for point in &circle.edge {
 
             let line = RasterUtils::draw_line(origin,&point);
@@ -221,11 +223,11 @@ impl Raster {
 
             for (point, result) in iter {
                 if let Some(idx) = self.point_to_idx(point) {
-                    result_array[idx] = *result
+                    result_vec[idx] = Some(*result)
                 }
             }
         }
-        ResultRaster::ResultRaster::new(result_array, self.width, self.x0, self.y1, circle)
+        ResultRaster::ResultRaster::new(result_vec, self.width, self.x0, self.y1, circle)
     }
 
     pub fn point_to_idx(&self, point: &Point::Point) -> Option<usize> {

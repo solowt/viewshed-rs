@@ -19,7 +19,7 @@ fn read_vec_from_file(filename: &str) -> Vec<Option<f32>> {
     let file = File::open(filename).expect("no such file");
     let buf = BufReader::new(file);
 
-    let mut ret_vec: Vec<Option<f32>> = Vec::with_capacity(66_049);
+    let mut ret_vec: Vec<Option<f32>> = Vec::with_capacity(LEN);
 
     for val in buf.split(b',') {
         let byte_vec = &val.unwrap();

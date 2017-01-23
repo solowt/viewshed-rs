@@ -3,6 +3,8 @@ use Circle;
 use std::f32;
 use std::cmp::*;
 
+static LEN: usize = 66_049;
+
 // pub fn bilinear_interp(raster: [Option<f32>; 66_049], idx: usize, width: u32) -> f32 {
 // 	bilinear_interp_point(raster, idx_to_point(width,idx), width)
 // }
@@ -178,7 +180,7 @@ pub fn draw_circle(mid_point: &Point::Point, radius: u32) -> Circle::Circle{
     }
 }
 
-fn bordering_on_slope(raster: &[Option<f32>; 66_049], idx: usize, width: u32, search_value: f32) -> bool {
+fn bordering_on<T: PartialEq + Copy>(raster: &[Option<T>], idx: usize, width: u32, search_value: T) -> bool {
     get_neighbors_less(idx, width, raster.len())
         .iter()
         .take_while(|idx_opt| idx_opt.is_some())
@@ -189,17 +191,17 @@ fn bordering_on_slope(raster: &[Option<f32>; 66_049], idx: usize, width: u32, se
         })
 }
 
-fn bordering_on_bool(raster: &[bool; 66_049], idx: usize, width: u32, search_value: bool) -> bool {
-    get_neighbors_less(idx, width, raster.len())
-        .iter()
-        .take_while(|idx_opt| idx_opt.is_some())
-        .map(|idx_valid| raster[idx_valid.unwrap()])
-        .any(|value_valid| {
-            value_valid == search_value
-        })
-}
+// fn bordering_on_bool(raster: &[bool], idx: usize, width: u32, search_value: bool) -> bool {
+//     get_neighbors_less(idx, width, raster.len())
+//         .iter()
+//         .take_while(|idx_opt| idx_opt.is_some())
+//         .map(|idx_valid| raster[idx_valid.unwrap()])
+//         .any(|value_valid| {
+//             value_valid == search_value
+//         })
+// }
 
-// aggregate_valid_pix(raster)
+// aggregate_valid_pix<T>(raster: &[Option<T>])
 
 fn get_slope_from_idx(pixels: &[Option<f32>], idx: usize, target_idx: usize) -> Option<f32> {
     
