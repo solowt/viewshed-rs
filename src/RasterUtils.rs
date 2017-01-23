@@ -9,7 +9,7 @@ use std::cmp::*;
 
 // pub fn bilinear_interp_point(raster: [Option<f32>; 66_049], point: Point::Point, width: u32) -> f32 {
 // 	3.3
-// }
+// } 
 
 pub fn idx_to_point(width: u32, idx: usize) -> Point::Point {
 	let x = idx % width as usize;
@@ -178,6 +178,29 @@ pub fn draw_circle(mid_point: &Point::Point, radius: u32) -> Circle::Circle{
     }
 }
 
+fn bordering_on_slope(raster: &[Option<f32>; 66_049], idx: usize, width: u32, search_value: f32) -> bool {
+    get_neighbors_less(idx, width, raster.len())
+        .iter()
+        .take_while(|idx_opt| idx_opt.is_some())
+        .map(|idx_valid| raster[idx_valid.unwrap()])
+        .take_while(|value_opt| value_opt.is_some())
+        .any(|value_valid| {
+            value_valid.unwrap() == search_value
+        })
+}
+
+fn bordering_on_bool(raster: &[bool; 66_049], idx: usize, width: u32, search_value: bool) -> bool {
+    get_neighbors_less(idx, width, raster.len())
+        .iter()
+        .take_while(|idx_opt| idx_opt.is_some())
+        .map(|idx_valid| raster[idx_valid.unwrap()])
+        .any(|value_valid| {
+            value_valid == search_value
+        })
+}
+
+// aggregate_valid_pix(raster)
+
 fn get_slope_from_idx(pixels: &[Option<f32>; 66_049], idx: usize, target_idx: usize) -> Option<f32> {
     
     let h1 = pixels[idx];
@@ -188,6 +211,25 @@ fn get_slope_from_idx(pixels: &[Option<f32>; 66_049], idx: usize, target_idx: us
     } else {
         None
     }
+}
+
+fn get_neighbors_less(idx: usize, width: u32, size: usize) -> [Option<usize>; 4] {
+    let mut ret_arr: [Option<usize>; 4] = [None; 4];
+
+    if idx % width as usize != 0 {
+        ret_arr[0] = Some(idx - 1);
+    }
+    if (idx + 1) % width as usize != 0 {
+        ret_arr[1] = Some(idx + 1);
+    }
+    if idx >= width as usize {
+        ret_arr[2] = Some(idx - width as usize);
+    }
+    if idx < size - width as usize {
+        ret_arr[3] = Some(idx + width as usize);
+    }
+
+    ret_arr
 }
 
 fn get_neighbors(idx: usize, width: u32, size: usize) -> [Option<usize>; 8] {

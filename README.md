@@ -13,6 +13,7 @@
 
 ## TO DO:
 
+*  Move to vecs for rasters.
 *  Write method to find polygons in a result raster.  Result should be Type: Vec<Vec<Point>>. Need to find the "edges" of a polygon -> true pixels bordering a false pixel on any of the 8 bordering pixels.
 *  Add slope raster prop to raster, holds the slope raster.
 *  Write method to find all slopes under a certain distance from 0 in slope pixels.  These regions also need to be turned into polygons, simlar to viewshed result rasters.
