@@ -191,17 +191,22 @@ fn bordering_on<T: PartialEq + Copy>(raster: &[Option<T>], idx: usize, width: u3
         })
 }
 
-// fn bordering_on_bool(raster: &[bool], idx: usize, width: u32, search_value: bool) -> bool {
-//     get_neighbors_less(idx, width, raster.len())
-//         .iter()
-//         .take_while(|idx_opt| idx_opt.is_some())
-//         .map(|idx_valid| raster[idx_valid.unwrap()])
-//         .any(|value_valid| {
-//             value_valid == search_value
-//         })
-// }
-
-// aggregate_valid_pix<T>(raster: &[Option<T>])
+pub fn aggregate_valid_pix<T: PartialEq + Copy>(raster: &[Option<T>], width: u32, search_value: T) -> Vec<usize> {
+    raster.iter()
+          .enumerate()
+          .map(|idx_tuple: (usize, &Option<T>)| {
+                match *idx_tuple.1 {
+                    Some(_) => match bordering_on(raster,idx_tuple.0,width,search_value) {
+                        true    => Some(idx_tuple.0),
+                        false   => None
+                    },
+                    None    => None
+                }
+          })
+          .filter(|idx_opt| idx_opt.is_some())
+          .map(|valid_idx| valid_idx.unwrap())
+          .collect::<Vec<usize>>()
+}
 
 fn get_slope_from_idx(pixels: &[Option<f32>], idx: usize, target_idx: usize) -> Option<f32> {
     
@@ -268,9 +273,9 @@ fn get_neighbors(idx: usize, width: u32, size: usize) -> [Option<usize>; 8] {
 pub fn get_max_slope_idx(pixels: &[Option<f32>], width: u32, idx: usize) -> Option<f32> {
 	get_neighbors(idx, width, pixels.len())
 		.iter()
-	 	.take_while(|idx_opt| idx_opt.is_some())
+	 	.filter(|idx_opt| idx_opt.is_some())
 		.map(|valid_idx| get_slope_from_idx(pixels, idx, valid_idx.unwrap()))
-		.take_while(|slope_opt| slope_opt.is_some())
+		.filter(|slope_opt| slope_opt.is_some())
 		.fold(None, |acc, valid_slope| {
 			if acc.is_none() { valid_slope }
 			else if valid_slope.unwrap() > acc.unwrap() { valid_slope }
