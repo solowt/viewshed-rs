@@ -61,7 +61,7 @@ impl ResultRaster {
         let mut num_true = 0;
 
         let total_pix = self.pixels.iter()
-                    .take_while(|px| px.is_some())
+                    .filter(|px| px.is_some())
                     .fold(0,|acc, pixel|{
                         if pixel.unwrap() == true { num_true+=1; } else { num_false+=1; }
                         acc+1

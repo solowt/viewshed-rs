@@ -183,9 +183,9 @@ pub fn draw_circle(mid_point: &Point::Point, radius: u32) -> Circle::Circle{
 fn bordering_on<T: PartialEq + Copy>(raster: &[Option<T>], idx: usize, width: u32, search_value: T) -> bool {
     get_neighbors_less(idx, width, raster.len())
         .iter()
-        .take_while(|idx_opt| idx_opt.is_some())
+        .filter(|idx_opt| idx_opt.is_some())
         .map(|idx_valid| raster[idx_valid.unwrap()])
-        .take_while(|value_opt| value_opt.is_some())
+        .filter(|value_opt| value_opt.is_some())
         .any(|value_valid| {
             value_valid.unwrap() == search_value
         })
