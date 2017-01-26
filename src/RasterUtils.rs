@@ -2,16 +2,59 @@ use Point;
 use Circle;
 use std::f32;
 use std::cmp::*;
+// use stf::fmt::*;
 
 static LEN: usize = 66_049;
 
-// pub fn bilinear_interp(raster: [Option<f32>; 66_049], idx: usize, width: u32) -> f32 {
-// 	bilinear_interp_point(raster, idx_to_point(width,idx), width)
-// }
+pub fn point_to_idx<T>(point: &Point::Point, raster: &[T], width: u32) -> Option<usize> {
+    if point.x < 0 || point.y < 0 || point.x >= width as i32 || point.y > raster.len() as i32 / width as i32 {
+        None
+    } else {
+        let idx: u32 = (width * point.y as u32) + point.x as u32;
+        Some(idx as usize)
+    }
+}   
 
-// pub fn bilinear_interp_point(raster: [Option<f32>; 66_049], point: Point::Point, width: u32) -> f32 {
-// 	3.3
-// } 
+pub fn bilinear_interp_mid(raster: &[Option<f32>], idx: usize, width: u32) -> Option<f32> {
+    let mut val_arr: [Option<f32>;4] = [None;4];
+    let size = raster.len();
+    let mut right_edge: bool = true;
+    let mut top_row: bool = true;
+
+    val_arr[0] = raster[idx];
+    if idx < size - width as usize {
+        val_arr[1] = raster[idx + width as usize];
+        top_row = false;
+    }
+    if (idx + 1) % width as usize != 0 {
+        val_arr[2] = raster[idx + 1];
+        right_edge = false;
+    }
+    if !top_row && !right_edge{
+        val_arr[3] = raster[idx + width as usize +1];
+    }
+    
+    let mut i = 0;
+    let sum = val_arr.iter()
+                     .filter(|&x| x.is_some())
+                     .fold(0.0 as f32,|acc,&x| {
+                        i += 1;
+                        acc + x.unwrap()
+                     });
+
+    match i {
+        0   => None,
+        _   => Some(sum / i as f32)
+    }
+}
+
+pub fn bilinear_interp_mid_point(raster: &[Option<f32>], point: &Point::Point, width: u32) -> Option<f32> {
+    let idx_opt = point_to_idx(point, raster, width);
+    match idx_opt {
+        Some(idx)   => bilinear_interp_mid(raster, idx, width),
+        None        => None	
+    }
+} 
 
 pub fn idx_to_point(width: u32, idx: usize) -> Point::Point {
 	let x = idx % width as usize;
@@ -85,7 +128,7 @@ pub fn draw_line(p1: &Point::Point, p2: &Point::Point) -> Vec<Point::Point>{
     let mut curr_x = p1.x;
     let mut curr_y = p1.y;
 
-    for iter in 0..longest+1 {
+    for _ in 0..longest+1 {
         ret_vec.push(Point::Point{ x:curr_x, y: curr_y });
         numerator += shortest;
         if !(numerator < longest){
@@ -185,20 +228,28 @@ fn bordering_on<T: PartialEq + Copy>(raster: &[Option<T>], idx: usize, width: u3
         .iter()
         .filter(|idx_opt| idx_opt.is_some())
         .map(|idx_valid| raster[idx_valid.unwrap()])
-        .filter(|value_opt| value_opt.is_some())
-        .any(|value_valid| {
-            value_valid.unwrap() == search_value
+        .any(|value_opt| {
+            match value_opt {
+                Some(b) => b == search_value,
+                None    => true
+            }
         })
 }
 
-pub fn aggregate_valid_pix<T: PartialEq + Copy>(raster: &[Option<T>], width: u32, search_value: T) -> Vec<usize> {
+pub fn aggregate_valid_pix(raster: &[Option<bool>], width: u32, search_value: bool) -> Vec<usize> {
     raster.iter()
           .enumerate()
-          .map(|idx_tuple: (usize, &Option<T>)| {
+          .map(|idx_tuple: (usize, &Option<bool>)| {
                 match *idx_tuple.1 {
-                    Some(_) => match bordering_on(raster,idx_tuple.0,width,search_value) {
-                        true    => Some(idx_tuple.0),
-                        false   => None
+                    Some(t) =>   {
+                        if t == true {
+                            match bordering_on(raster,idx_tuple.0,width,search_value) {
+                                true    =>  Some(idx_tuple.0),
+                                false   =>  None
+                            }
+                        } else {
+                            None
+                        }
                     },
                     None    => None
                 }
@@ -207,6 +258,29 @@ pub fn aggregate_valid_pix<T: PartialEq + Copy>(raster: &[Option<T>], width: u32
           .map(|valid_idx| valid_idx.unwrap())
           .collect::<Vec<usize>>()
 }
+
+// pub fn aggregate_valid_pix<T: PartialEq + Copy>(raster: &[Option<T>], width: u32, search_value: T) -> Vec<usize> {
+//     raster.iter()
+//           .enumerate()
+//           .map(|idx_tuple: (usize, &Option<T>)| {
+//                 match *idx_tuple.1 {
+//                     Some(t) =>   {
+//                         if t: bool == true {
+//                             match bordering_on(raster,idx_tuple.0,width,search_value) {
+//                                 true    =>  Some(idx_tuple.0),
+//                                 false   =>  None
+//                             }
+//                         } else {
+//                             None
+//                         }
+//                     },
+//                     None       => None
+//                 }
+//           })
+//           .filter(|idx_opt| idx_opt.is_some())
+//           .map(|valid_idx| valid_idx.unwrap())
+//           .collect::<Vec<usize>>()
+// }
 
 fn get_slope_from_idx(pixels: &[Option<f32>], idx: usize, target_idx: usize) -> Option<f32> {
     

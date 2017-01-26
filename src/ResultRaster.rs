@@ -1,6 +1,7 @@
 extern crate image;
 use Circle;
 use Point;
+use RasterUtils;
 use std::fs::File;
 use std::path::Path;
 
@@ -76,6 +77,15 @@ impl ResultRaster {
         
         self.pixels[idx as usize]
 
+    }
+
+    pub fn borders(self) -> ResultRaster { 
+        let valid_idices = RasterUtils::aggregate_valid_pix(&self.pixels, self.width, false);
+        let mut new_pixels: Vec<Option<bool>> = vec![None; LEN];
+        for idx in valid_idices {
+            new_pixels[idx] = Some(true);
+        }
+        ResultRaster::new(new_pixels, self.width, self.x0, self.y1, self.circle)
     }
 
     /*

@@ -222,21 +222,12 @@ impl Raster {
             let iter = line.iter().zip(line_result.iter());
 
             for (point, result) in iter {
-                if let Some(idx) = self.point_to_idx(point) {
+                if let Some(idx) = RasterUtils::point_to_idx(point, &self.pixels, self.width) {
                     result_vec[idx] = Some(*result)
                 }
             }
         }
         ResultRaster::ResultRaster::new(result_vec, self.width, self.x0, self.y1, circle)
-    }
-
-    pub fn point_to_idx(&self, point: &Point::Point) -> Option<usize> {
-        if point.x < 0 || point.y < 0 || point.x > self.width as i32 - 1 || point.y > self.pixels.len() as i32 -1 {
-            None
-        } else {
-            let idx: u32 = (self.width * point.y.abs() as u32) + point.x.abs() as u32;
-            Some(idx as usize)
-        }
     }
 
     // check a line of points for visibility from the first point
