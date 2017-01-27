@@ -130,8 +130,11 @@ impl Raster {
         //     None    => self.get_height_recur(p2)
         // };
 
-        let h1 = self.value_at(p1);
-        let h2 = self.value_at(p2);
+        // let h1 = self.value_at(p1);
+        // let h2 = self.value_at(p2);
+
+        let h1 = RasterUtils::bilinear_interp_mid_point(&self.pixels, p1, self.width);
+        let h2 = RasterUtils::bilinear_interp_mid_point(&self.pixels, p2, self.width);
 
         if h1.is_some() && h2.is_some() {
             Some(h2.unwrap()-h1.unwrap() as f32/self.get_dist(p1,p2))
