@@ -6,6 +6,7 @@ mod ResultRaster;
 mod Point;
 mod Circle;
 mod RasterUtils;
+mod Path;
 
 static NO_VALUE: f32 = std::f32::MAX;
 static LEN: usize = 66_049;
@@ -89,6 +90,7 @@ fn get_task(raster: &Raster::Raster){
         let input2 = get_input();
         let f_name = input2.trim();
         let result = raster.do_viewshed(&Point::Point{x: x, y: y}, dist);
+        result.check_result();
         result.save_png(f_name);
 
         get_task(raster);
@@ -132,7 +134,7 @@ fn get_task(raster: &Raster::Raster){
         let f_name = input2.trim();
         let result = raster.do_viewshed(&Point::Point{x: x, y: y}, dist);
         result.check_result();
-        let borders = result.borders();
+        let borders = result.smart_borders();
         borders.check_result();
         borders.save_png(f_name);
 

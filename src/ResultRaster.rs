@@ -88,6 +88,21 @@ impl ResultRaster {
         ResultRaster::new(new_pixels, self.width, self.x0, self.y1, self.circle)
     }
 
+    pub fn smart_borders(self) -> ResultRaster {
+        let len: usize = self.pixels.len();
+        let width: u32 = self.width;
+
+        let path_list = RasterUtils::get_paths(self.pixels, self.width);
+
+        let mut new_pixels: Vec<Option<bool>> = vec![None; LEN];
+        for path in path_list {
+            for point in path.points {
+                new_pixels[RasterUtils::point_to_idx(&point, len, width).unwrap()] = Some(true);
+            }
+        }
+        ResultRaster::new(new_pixels, self.width, self.x0, self.y1, self.circle)
+    }
+
     /*
     fn get_polygons(&self) -> Vec<Vec<Point>>{
         find all true pixels inside circle including edge of circle push to v1

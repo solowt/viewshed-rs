@@ -1,13 +1,15 @@
 use Point;
 use Circle;
+use Path;
 use std::f32;
+use std::i32;
 use std::cmp::*;
 // use stf::fmt::*;
 
 static LEN: usize = 66_049;
 
-pub fn point_to_idx<T>(point: &Point::Point, raster: &[T], width: u32) -> Option<usize> {
-    if point.x < 0 || point.y < 0 || point.x >= width as i32 || point.y > raster.len() as i32 / width as i32 {
+pub fn point_to_idx(point: &Point::Point, size: usize, width: u32) -> Option<usize> {
+    if point.x < 0 || point.y < 0 || point.x >= width as i32 || point.y > size as i32 / width as i32 {
         None
     } else {
         let idx: u32 = (width * point.y as u32) + point.x as u32;
@@ -49,7 +51,7 @@ pub fn bilinear_interp_mid(raster: &[Option<f32>], idx: usize, width: u32) -> Op
 }
 
 pub fn bilinear_interp_mid_point(raster: &[Option<f32>], point: &Point::Point, width: u32) -> Option<f32> {
-    let idx_opt = point_to_idx(point, raster, width);
+    let idx_opt = point_to_idx(point, raster.len(), width);
     match idx_opt {
         Some(idx)   => bilinear_interp_mid(raster, idx, width),
         None        => None	
@@ -236,6 +238,7 @@ fn bordering_on<T: PartialEq + Copy>(raster: &[Option<T>], idx: usize, width: u3
         })
 }
 
+// 'dumb' brute force method
 pub fn aggregate_valid_pix(raster: &[Option<bool>], width: u32, search_value: bool) -> Vec<usize> {
     raster.iter()
           .enumerate()
@@ -360,4 +363,161 @@ pub fn get_max_slope_idx(pixels: &[Option<f32>], width: u32, idx: usize) -> Opti
 pub fn f32_to_u8(min: f32, max: f32, val: f32) -> u8 {
 	let grey_scale_val = (((val - min) * (255.0 as f32 - 0.0 as f32)) / (max - min)) + 0.0 as f32;
     grey_scale_val as u8
+}
+
+/***/
+// potrace // 
+/****/
+
+pub fn point_to_bool(point: &Point::Point, raster: &[Option<bool>], width: u32) -> bool {
+    if point.x < 0 || point.y < 0 || point.x >= width as i32 || point.y >= width as i32 {
+        false
+    } else {
+        let idx: u32 = (width * point.y as u32) + point.x as u32;
+        match raster[idx as usize] {
+            Some(true)  => true,
+            Some(false) => false,
+            None        => false
+        }
+    }
+} 
+
+pub fn find_path(raster: &[Option<bool>], source_width: u32, origin: Point::Point) -> Path::Path {
+    let mut ret_vec: Vec<Point::Point> = Vec::new();
+    let mut x: i32 = origin.x;
+    let mut y: i32 = origin.y;
+    let mut dir_x: i32 = 0;
+    let mut dir_y: i32 = 1;
+    let mut max_x: i32 = i32::MIN;
+    let mut max_y: i32 = i32::MIN;
+    let mut min_x: i32 = i32::MAX;
+    let mut min_y: i32 = i32::MAX;
+    let mut area: i32 = 0;
+    let mut temp: i32;
+
+    loop {
+        ret_vec.push(Point::Point{ x: x, y: y });
+
+        if x > max_x {
+            max_x = x;
+        }
+        if x < min_x {
+            min_x = x;
+        }
+        if y > max_y {
+            max_y = y;
+        }
+        if y < min_y {
+            min_y = y;
+        }
+
+        x += dir_x;
+        y += dir_y;
+        area -= x * dir_y;
+
+        if x == origin.x && y == origin.y {
+            break;
+        }
+
+        let l: bool = point_to_bool(&Point::Point{x: x + (dir_x + dir_y -1) / 2, y: y + (dir_y - dir_x -1) / 2}, &raster, source_width);
+        let r: bool = point_to_bool(&Point::Point{x: x + (dir_x - dir_y -1) / 2, y: y + (dir_y + dir_x -1) / 2}, &raster, source_width);
+        // println!("{},{}",l,r);
+        if r == true && l == false {
+            temp = dir_x;
+            dir_x = dir_y;
+            dir_y = -temp;
+        } else if r == true {
+            temp = dir_x;
+            dir_x = -dir_y;
+            dir_y = temp;
+        } else if l == false {
+            temp = dir_x;
+            dir_x = dir_y;
+            dir_y = -temp;
+        }
+    }
+    Path::Path {
+        area: area,
+        points: ret_vec,
+        min_x: min_x,
+        min_y: min_y,
+        max_x: max_x,
+        max_y: max_y
+    }
+}
+
+fn flip_point(raster: &mut Vec<Option<bool>>, width: u32, point: Point::Point){
+    if let Some(idx) = point_to_idx(&point, raster.len(), width) {
+        match raster[idx] {
+            Some(true)  => raster[idx] = None,
+            Some(false) => raster[idx] = Some(true),
+            None        => raster[idx] = Some(true)
+        }
+    }
+}
+
+fn flip_path(mut raster: Vec<Option<bool>>, width: u32, path: &Path::Path) -> Vec<Option<bool>> {
+    let mut y1 = path.points[0].y;
+    let mut x;
+    let mut y;
+    let mut x_max;
+    let mut y_min;
+
+    for idx in 1..path.points.len() {
+        x = path.points[idx].x;
+        y = path.points[idx].y;
+        if y != y1 {
+            y_min = if y1 < y { y1 } else { y };
+            x_max = path.max_x;
+            for j in x..x_max {
+                // if let Some(idx) = point_to_idx(&Point::Point{ x: j, y: y_min }, raster.len(), width) {
+                //     raster[idx] = None;
+                // }
+                flip_point(&mut raster,width,   Point::Point{ x: j, y: y_min });
+            }
+            y1 = y;
+        }
+    }
+    raster
+}
+
+fn find_next(point: &Point::Point, width: u32, raster: &[Option<bool>]) -> Option<Point::Point> {
+    let mut i: usize = width as usize * point.y as usize + point.x as usize;
+    while i < raster.len() && is_none_or_false(raster, i) {
+        i += 1;
+    }
+
+    if i >= raster.len() {
+        None
+    } else {
+        Some(idx_to_point(width, i))
+    }
+}
+
+fn is_none_or_false(raster: &[Option<bool>], idx: usize) -> bool {
+    match raster[idx] {
+        Some(true)  => false,
+        Some(false) => true,
+        None        => true
+    }
+}
+
+pub fn get_paths(mut raster: Vec<Option<bool>>, width: u32) -> Vec<Path::Path> {
+    let mut current_point: Point::Point = Point::Point{ x: 0, y: 0 };
+    let mut ret_vec: Vec<Path::Path> = Vec::new();
+
+    loop {
+        match find_next(&current_point, width, &raster) {
+            Some(p) => current_point = p,
+            None    => break
+        }
+
+        let new_path = find_path(&raster, width, current_point);
+        raster = flip_path(raster, width, &new_path);
+        if new_path.area > 5{
+            ret_vec.push(new_path)
+        }
+    }
+
+    ret_vec
 }

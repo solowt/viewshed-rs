@@ -225,7 +225,7 @@ impl Raster {
             let iter = line.iter().zip(line_result.iter());
 
             for (point, result) in iter {
-                if let Some(idx) = RasterUtils::point_to_idx(point, &self.pixels, self.width) {
+                if let Some(idx) = RasterUtils::point_to_idx(point, self.pixels.len(), self.width) {
                     result_vec[idx] = Some(*result)
                 }
             }

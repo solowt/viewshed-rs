@@ -13,10 +13,10 @@
 
 ## TO DO:
 
-*  Write method to find polygons in a result raster.  Result should be Type: Vec<Vec<Point>>. Need to find the "edges" of a polygon -> true pixels bordering a false pixel on any of the 8 bordering pixels.
-*  Add slope raster prop to raster, holds the slope raster.
-*  Write method to find all slopes under a certain distance from 0 in slope pixels.  These regions also need to be turned into polygons, simlar to viewshed result rasters.
 *  Write bilinear_interp function in utils.  Check API to see how this is done in terms of which 4 pixels are chosen.
+*  Branch code and write a subset for finding viewshed + regions.  Drop image lib and much more in this branch.
 *  Write methods to go between raster space and map space (web mercator to start with).  This uses constants attached to rasters, again: check getElevation() method.
+*  Need to translate pathlist into lat/longs, x/ys, also consider the format we want to use.
+*  Need to figure out how data gets transfered: if we compile to asm.js, what will path list look like? (array of arrays?)
 *  Should we "poll" viewshed results?  IE, many pixels are tested more than once.  Currently last line to hit a pixel gets priority.  If we choose to poll, how do we store votes?  Hashmap?  Parallel arrays?
 *  Find best tile in browser.  where is it?  Tilemap?  TileClass? Pool?  Check for elevation layer on change.  Search API.  Can also make another request if needed.  Where are requests being made from the API?  Note: check getElevation() in Tileworker (wrong name), this runs through children I believe.
